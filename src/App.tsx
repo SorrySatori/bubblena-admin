@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import './App.css'
+import Login from './components/Login'
 
 interface OrderItem {
   id: string
@@ -29,9 +30,11 @@ interface Order {
   updatedAt: string
 }
 
-const API_URL = 'http://localhost:3001/api/order'
+const API_URL = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api'}/order`
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [authLoading, setAuthLoading] = useState(true)
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -57,8 +60,42 @@ function App() {
   }
 
   useEffect(() => {
-    fetchOrders()
+    // Check if user is already authenticated
+    const credentials = localStorage.getItem('adminAuth')
+    if (credentials) {
+      // Verify credentials are valid
+      try {
+        const decoded = atob(credentials)
+        const validCredentials = 'kapybara:TajnyHeslo666'
+        if (decoded === validCredentials) {
+          setIsAuthenticated(true)
+        } else {
+          localStorage.removeItem('adminAuth')
+          setIsAuthenticated(false)
+        }
+      } catch (err) {
+        localStorage.removeItem('adminAuth')
+        setIsAuthenticated(false)
+      }
+    }
+    setAuthLoading(false)
   }, [])
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchOrders()
+    }
+  }, [isAuthenticated])
+
+  const handleLoginSuccess = () => {
+    setIsAuthenticated(true)
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('adminAuth')
+    setIsAuthenticated(false)
+    setOrders([])
+  }
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
@@ -119,12 +156,33 @@ function App() {
 
   const stats = getOrderStats()
 
+  if (authLoading) {
+    return (
+      <div className="app">
+        <div className="container">
+          <div className="loading">Loading...</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return <Login onLoginSuccess={handleLoginSuccess} />
+  }
+
   return (
     <div className="app">
       <div className="container">
         <header className="header">
-          <h1>🛍️ Bubblena Admin Panel</h1>
-          <p>Make the pěna flow!</p>
+          <div className="header-content">
+            <div>
+              <h1>🛍️ Bubblena Admin Panel</h1>
+              <p>Manage your orders and track their status</p>
+            </div>
+            <button onClick={handleLogout} className="logout-button">
+              Logout
+            </button>
+          </div>
         </header>
 
         <div className="stats">

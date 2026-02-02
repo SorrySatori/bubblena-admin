@@ -1,15 +1,112 @@
-# React + TypeScript + Vite
+# 🛍️ Bubblena Admin Panel
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Admin panel for managing Bubblena e-commerce orders. Built with React, TypeScript, and Vite.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- 📊 Order management dashboard
+- 🔐 Simple authentication system
+- 📈 Real-time order statistics
+- ✏️ Update order statuses
+- 🎨 Beautiful gradient UI
+- 📱 Responsive design
 
-## React Compiler
+## Quick Start
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Prerequisites
+
+- Node.js (v16 or higher)
+- npm or yarn
+- Backend API running (bubblena-be)
+
+### Installation
+
+```bash
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env
+
+# Start development server
+npm run dev
+```
+
+The admin panel will be available at `http://localhost:5173`
+
+### Default Credentials
+
+- **Username:** `kapybara`
+- **Password:** `TajnyHeslo666`
+
+⚠️ **Security Note:** This is a client-side only authentication suitable for internal tools. For production, ensure network-level security (VPN, IP whitelisting) is in place.
+
+## Environment Configuration
+
+See [ENVIRONMENT.md](./ENVIRONMENT.md) for detailed environment variable setup.
+
+**Key Variables:**
+- `VITE_API_BASE_URL` - Backend API base URL (default: `http://localhost:3001/api`)
+
+## Authentication
+
+See [AUTHENTICATION.md](./AUTHENTICATION.md) for authentication implementation details.
+
+## Project Structure
+
+```
+src/
+├── components/
+│   ├── Login.tsx       # Login component
+│   └── Login.css       # Login styles
+├── App.tsx             # Main application component
+├── App.css             # Application styles
+└── main.tsx            # Application entry point
+```
+
+## Available Scripts
+
+```bash
+# Development
+npm run dev          # Start dev server
+
+# Production
+npm run build        # Build for production
+npm run preview      # Preview production build
+
+# Linting
+npm run lint         # Run ESLint
+```
+
+## Deployment
+
+### Building for Production
+
+1. Update `.env.production` with your production API URL:
+   ```
+   VITE_API_BASE_URL=https://api.bubblena.cz/api
+   ```
+
+2. Build the project:
+   ```bash
+   npm run build
+   ```
+
+3. Deploy the `dist/` folder to your hosting provider
+
+### Hosting Options
+
+- Netlify
+- Vercel
+- GitHub Pages
+- Any static hosting service
+
+## Tech Stack
+
+- **React 18** - UI library
+- **TypeScript** - Type safety
+- **Vite** - Build tool and dev server
+- **CSS3** - Styling with gradients and animations
 
 ## Expanding the ESLint configuration
 
