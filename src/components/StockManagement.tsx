@@ -41,6 +41,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
 
   // Add form states
   const [productType, setProductType] = useState<'bathbomb' | 'steamer'>('bathbomb')
+  const [operation, setOperation] = useState<'add' | 'remove'>('add')
   const [selectedProduct, setSelectedProduct] = useState('')
   const [selectedSteamer, setSelectedSteamer] = useState('')
   const [weightVariant, setWeightVariant] = useState('')
@@ -102,12 +103,25 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
           return
         }
 
+        // Calculate new stock count
+        const currentStock = product.variants[variantIndex].stockCount
+        const quantityNum = parseInt(quantity)
+        const newStockCount = operation === 'add' 
+          ? currentStock + quantityNum 
+          : currentStock - quantityNum
+
+        // Validate stock count
+        if (newStockCount < 0) {
+          setError(`Cannot remove ${quantityNum} items. Only ${currentStock} in stock.`)
+          return
+        }
+
         // Update the variant stock count
         const updatedVariants = [...product.variants]
         updatedVariants[variantIndex] = {
           ...updatedVariants[variantIndex],
-          stockCount: updatedVariants[variantIndex].stockCount + parseInt(quantity),
-          inStock: true
+          stockCount: newStockCount,
+          inStock: newStockCount > 0
         }
 
         const response = await fetch(`${apiBaseUrl}/products/${selectedProduct}`, {
@@ -123,7 +137,9 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
         })
 
         if (response.ok) {
-          setSuccessMessage(`Successfully added ${quantity} pieces of ${product.name} (${weightVariant}g)`)
+          const action = operation === 'add' ? 'added' : 'removed'
+          const preposition = operation === 'add' ? 'to' : 'from'
+          setSuccessMessage(`Successfully ${action} ${quantity} pieces ${preposition} ${product.name} (${weightVariant}g)`)
           fetchStock()
           resetForm()
         } else {
@@ -142,6 +158,19 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
           return
         }
 
+        // Calculate new stock count
+        const currentStock = steamer.stockCount
+        const quantityNum = parseInt(quantity)
+        const newStockCount = operation === 'add' 
+          ? currentStock + quantityNum 
+          : currentStock - quantityNum
+
+        // Validate stock count
+        if (newStockCount < 0) {
+          setError(`Cannot remove ${quantityNum} items. Only ${currentStock} in stock.`)
+          return
+        }
+
         const response = await fetch(`${apiBaseUrl}/steamers/${selectedSteamer}`, {
           method: 'PUT',
           headers: {
@@ -150,13 +179,15 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
           },
           body: JSON.stringify({
             ...steamer,
-            stockCount: steamer.stockCount + parseInt(quantity),
-            inStock: true
+            stockCount: newStockCount,
+            inStock: newStockCount > 0
           }),
         })
 
         if (response.ok) {
-          setSuccessMessage(`Successfully added ${quantity} pieces of ${steamer.name}`)
+          const action = operation === 'add' ? 'added' : 'removed'
+          const preposition = operation === 'add' ? 'to' : 'from'
+          setSuccessMessage(`Successfully ${action} ${quantity} pieces ${preposition} ${steamer.name}`)
           fetchStock()
           resetForm()
         } else {
@@ -353,12 +384,36 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
 
       {activeTab === 'add' && (
         <div className="add-section">
-          <h2>Add Stock</h2>
+          <h2>Manage Stock</h2>
           
           {error && <div className="error-message">{error}</div>}
           {successMessage && <div className="success-message">{successMessage}</div>}
 
           <form onSubmit={handleAddStock} className="add-form">
+            <div className="form-group">
+              <label>Operation</label>
+              <div className="radio-group">
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    value="add"
+                    checked={operation === 'add'}
+                    onChange={(e) => setOperation(e.target.value as 'add' | 'remove')}
+                  />
+                  ➕ Add to Stock
+                </label>
+                <label className="radio-label">
+                  <input
+                    type="radio"
+                    value="remove"
+                    checked={operation === 'remove'}
+                    onChange={(e) => setOperation(e.target.value as 'add' | 'remove')}
+                  />
+                  ➖ Remove from Stock
+                </label>
+              </div>
+            </div>
+
             <div className="form-group">
               <label>Product Type</label>
               <div className="radio-group">
@@ -444,7 +499,9 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
             )}
 
             <div className="form-group">
-              <label htmlFor="quantity">Quantity to Add</label>
+              <label htmlFor="quantity">
+                {operation === 'add' ? 'Quantity to Add' : 'Quantity to Remove'}
+              </label>
               <input
                 type="number"
                 id="quantity"
@@ -457,8 +514,8 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
             </div>
 
             <div className="form-actions">
-              <button type="submit" className="submit-button">
-                Add to Stock
+              <button type="submit" className={`submit-button ${operation === 'remove' ? 'remove-button' : ''}`}>
+                {operation === 'add' ? '➕ Add to Stock' : '➖ Remove from Stock'}
               </button>
               <button type="button" onClick={resetForm} className="reset-button">
                 Reset

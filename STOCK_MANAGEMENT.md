@@ -14,17 +14,20 @@ The Stock Management feature allows you to manage inventory for bath bombs and s
   - Bath Bombs table showing all variants with weight, price, stock count, and status
   - Steamers table showing all products with weight, price, stock count, and status
 
-### 2. Add Stock Tab
+### 2. Manage Stock Tab
+- **Operation Selection**: Choose between Add to Stock or Remove from Stock
 - **Product Type Selection**: Choose between Bath Bomb or Steamer
 - **Bath Bombs**:
   - Select from existing bath bomb products
   - Choose weight variant (e.g., 100g, 150g, 200g)
-  - Enter quantity to add
+  - Enter quantity to add or remove
   - Current stock is displayed for reference
+  - Validation prevents removing more items than available
 - **Steamers**:
   - Select from existing steamer products
-  - Enter quantity to add
+  - Enter quantity to add or remove
   - Current stock is displayed for reference
+  - Validation prevents removing more items than available
 
 ## How to Use
 
@@ -34,14 +37,17 @@ The Stock Management feature allows you to manage inventory for bath bombs and s
 3. Items with low stock (< 10 pieces) are highlighted in red
 4. Check the "Low Stock Alert" section for items that need restocking
 
-### Adding Stock
-1. Click on the "Add Stock" tab
-2. Select the product type (Bath Bomb or Steamer)
-3. Choose the specific product from the dropdown
-4. For bath bombs, select the weight variant
-5. Enter the quantity to add
-6. Click "Add to Stock"
-7. A success message will confirm the update
+### Managing Stock
+1. Click on the "Add Stock" tab (now labeled "Manage Stock")
+2. Select the operation (Add to Stock or Remove from Stock)
+3. Select the product type (Bath Bomb or Steamer)
+4. Choose the specific product from the dropdown
+5. For bath bombs, select the weight variant
+6. Enter the quantity to add or remove
+7. Click "Add to Stock" or "Remove from Stock"
+8. A success message will confirm the update
+
+**Note**: When removing stock, the system validates that you don't remove more items than are currently available. If you try to remove more than the current stock, you'll see an error message.
 
 ## API Integration
 
@@ -108,12 +114,20 @@ interface Steamer {
 - All prices are displayed in Czech Koruna (CZK)
 - Weight is displayed in grams (g)
 
+## Features
+
+### Stock Operations
+- ✅ **Add to Stock**: Increase inventory levels
+- ✅ **Remove from Stock**: Decrease inventory levels with validation
+- ✅ **Automatic Status Updates**: `inStock` status automatically updates based on stock levels
+- ✅ **Stock Validation**: Prevents removing more items than available
+
 ## Future Enhancements
 
 Potential improvements for the stock management feature:
-- Ability to decrease stock manually
 - Stock history and audit log
-- Automatic low stock notifications
-- Bulk stock updates
+- Automatic low stock notifications via email
+- Bulk stock updates (CSV import)
 - Export stock data to CSV
 - Stock forecasting based on order history
+- Stock movement reports
