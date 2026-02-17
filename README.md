@@ -5,9 +5,12 @@ Admin panel for managing Bubblena e-commerce orders. Built with React, TypeScrip
 ## Features
 
 - 📊 Order management dashboard
+- 📦 Stock management for bath bombs and steamers
 - 🔐 Simple authentication system
 - 📈 Real-time order statistics
 - ✏️ Update order statuses
+- ➕ Add inventory with variant support
+- ⚠️ Low stock alerts
 - 🎨 Beautiful gradient UI
 - 📱 Responsive design
 
@@ -48,21 +51,35 @@ See [ENVIRONMENT.md](./ENVIRONMENT.md) for detailed environment variable setup.
 
 **Key Variables:**
 - `VITE_API_BASE_URL` - Backend API base URL (default: `http://localhost:3001/api`)
+- `VITE_API_KEY` - API key for backend authentication
 
 ## Authentication
 
 See [AUTHENTICATION.md](./AUTHENTICATION.md) for authentication implementation details.
+
+## Stock Management
+
+See [STOCK_MANAGEMENT.md](./STOCK_MANAGEMENT.md) for detailed information about managing inventory.
+
+**Quick Overview:**
+- View all bath bomb and steamer inventory
+- Add stock for specific product variants
+- Monitor low stock items (< 10 pieces)
+- Real-time stock updates
 
 ## Project Structure
 
 ```
 src/
 ├── components/
-│   ├── Login.tsx       # Login component
-│   └── Login.css       # Login styles
-├── App.tsx             # Main application component
-├── App.css             # Application styles
-└── main.tsx            # Application entry point
+│   ├── Login.tsx              # Login component
+│   ├── Login.css              # Login styles
+│   ├── StockManagement.tsx    # Stock management component
+│   └── StockManagement.css    # Stock management styles
+├── App.tsx                     # Main application component
+├── App.css                     # Application styles
+├── vite-env.d.ts              # Environment variable types
+└── main.tsx                    # Application entry point
 ```
 
 ## Available Scripts

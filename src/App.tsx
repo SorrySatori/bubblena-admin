@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 import Login from './components/Login'
+import StockManagement from './components/StockManagement'
 
 interface OrderItem {
   id: string
@@ -30,11 +31,13 @@ interface Order {
   updatedAt: string
 }
 
-const API_URL = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api'}/order`
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api'
+const API_URL = `${API_BASE_URL}/order`
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [authLoading, setAuthLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<'orders' | 'stock'>('orders')
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -185,6 +188,23 @@ function App() {
           </div>
         </header>
 
+        <div className="main-tabs">
+          <button
+            className={`main-tab ${activeTab === 'orders' ? 'active' : ''}`}
+            onClick={() => setActiveTab('orders')}
+          >
+            📦 Orders
+          </button>
+          <button
+            className={`main-tab ${activeTab === 'stock' ? 'active' : ''}`}
+            onClick={() => setActiveTab('stock')}
+          >
+            📊 Stock Management
+          </button>
+        </div>
+
+        {activeTab === 'orders' && (
+          <>
         <div className="stats">
           <div className="stat-card">
             <h3>Total Orders</h3>
@@ -285,6 +305,12 @@ function App() {
             </div>
           )}
         </div>
+          </>
+        )}
+
+        {activeTab === 'stock' && (
+          <StockManagement apiBaseUrl={API_BASE_URL} />
+        )}
       </div>
     </div>
   )
