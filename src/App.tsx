@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import './App.css'
 import Login from './components/Login'
 import StockManagement from './components/StockManagement'
+import DiscountManagement from './components/DiscountManagement'
 
 interface OrderItem {
   id: string
@@ -37,7 +38,7 @@ const API_URL = `${API_BASE_URL}/order`
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [authLoading, setAuthLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'orders' | 'stock'>('orders')
+  const [activeTab, setActiveTab] = useState<'orders' | 'stock' | 'discounts'>('orders')
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -201,6 +202,12 @@ function App() {
           >
             📊 Stock Management
           </button>
+          <button
+            className={`main-tab ${activeTab === 'discounts' ? 'active' : ''}`}
+            onClick={() => setActiveTab('discounts')}
+          >
+            🏷️ Discount Codes
+          </button>
         </div>
 
         {activeTab === 'orders' && (
@@ -310,6 +317,10 @@ function App() {
 
         {activeTab === 'stock' && (
           <StockManagement apiBaseUrl={API_BASE_URL} />
+        )}
+
+        {activeTab === 'discounts' && (
+          <DiscountManagement apiBaseUrl={API_BASE_URL} />
         )}
       </div>
     </div>
