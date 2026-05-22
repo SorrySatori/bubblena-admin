@@ -29,6 +29,18 @@ interface Bomb {
   updatedAt?: string
 }
 
+interface SteamerBatch {
+  _id?: string
+  batchId: string
+  stockCount: number
+}
+
+interface SteamerLot {
+  _id?: string
+  lotNumber: string
+  batches: SteamerBatch[]
+}
+
 interface Steamer {
   _id: string
   name: string
@@ -36,6 +48,7 @@ interface Steamer {
   weight: number
   stockCount: number
   inStock: boolean
+  lots: SteamerLot[]
   createdAt?: string
   updatedAt?: string
 }
@@ -235,40 +248,59 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
           return
         }
 
-        // Calculate new stock count
-        const currentStock = steamer.stockCount
         const quantityNum = parseInt(quantity)
-        const newStockCount = operation === 'add' 
-          ? currentStock + quantityNum 
-          : currentStock - quantityNum
 
-        // Validate stock count
-        if (newStockCount < 0) {
-          setError(`Cannot remove ${quantityNum} items. Only ${currentStock} in stock.`)
-          return
-        }
+        if (operation === 'add') {
+          // Use add-batch endpoint
+          const response = await fetch(`${apiBaseUrl}/steamers/${selectedSteamer}/add-batch`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': import.meta.env.VITE_API_KEY || ''
+            },
+            body: JSON.stringify({ stockCount: quantityNum }),
+          })
 
-        const response = await fetch(`${apiBaseUrl}/steamers/${selectedSteamer}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': import.meta.env.VITE_API_KEY || ''
-          },
-          body: JSON.stringify({
-            ...steamer,
-            stockCount: newStockCount,
-            inStock: newStockCount > 0
-          }),
-        })
-
-        if (response.ok) {
-          const action = operation === 'add' ? 'added' : 'removed'
-          const preposition = operation === 'add' ? 'to' : 'from'
-          setSuccessMessage(`Successfully ${action} ${quantity} pieces ${preposition} ${steamer.name}`)
-          fetchStock()
-          resetForm()
+          if (response.ok) {
+            const updatedSteamer = await response.json()
+            const lastLot = updatedSteamer.lots[updatedSteamer.lots.length - 1]
+            const lastBatch = lastLot.batches[lastLot.batches.length - 1]
+            setSuccessMessage(`Successfully added batch ${lastBatch.batchId} (${quantity} pcs) to ${steamer.name} [LOT ${lastLot.lotNumber}]`)
+            fetchStock()
+            resetForm()
+          } else {
+            setError('Failed to add batch')
+          }
         } else {
-          setError('Failed to update stock')
+          // Remove: update stockCount directly
+          const currentStock = steamer.stockCount
+          const newStockCount = currentStock - quantityNum
+
+          if (newStockCount < 0) {
+            setError(`Cannot remove ${quantityNum} items. Only ${currentStock} in stock.`)
+            return
+          }
+
+          const response = await fetch(`${apiBaseUrl}/steamers/${selectedSteamer}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': import.meta.env.VITE_API_KEY || ''
+            },
+            body: JSON.stringify({
+              ...steamer,
+              stockCount: newStockCount,
+              inStock: newStockCount > 0
+            }),
+          })
+
+          if (response.ok) {
+            setSuccessMessage(`Successfully removed ${quantity} pieces from ${steamer.name}`)
+            fetchStock()
+            resetForm()
+          } else {
+            setError('Failed to update stock')
+          }
         }
       }
     } catch (err) {
@@ -521,30 +553,55 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
                       <thead>
                         <tr>
                           <th>Product Name</th>
-                          <th>Weight</th>
-                          <th>Price</th>
-                          <th>Stock Count</th>
+                          <th>LOT</th>
+                          <th>Batch</th>
+                          <th>Batch Stock</th>
+                          <th>Total Stock</th>
                           <th>Status</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {steamers.map((steamer) => (
-                          <tr key={steamer._id}>
-                            <td>{steamer.name}</td>
-                            <td>{steamer.weight}g</td>
-                            <td>{steamer.price} Kč</td>
-                            <td>
-                              <span className={steamer.stockCount < 10 ? 'low-stock' : ''}>
-                                {steamer.stockCount}
-                              </span>
-                            </td>
-                            <td>
-                              <span className={`status ${steamer.inStock ? 'in-stock' : 'out-of-stock'}`}>
-                                {steamer.inStock ? '✓ In Stock' : '✗ Out of Stock'}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
+                        {steamers.map((steamer) =>
+                          steamer.lots && steamer.lots.length > 0 ? (
+                            steamer.lots.map((lot) =>
+                              lot.batches.map((batch) => (
+                                <tr key={`${steamer._id}-${batch.batchId}`}>
+                                  <td>{steamer.name}</td>
+                                  <td>{lot.lotNumber}</td>
+                                  <td>{batch.batchId}</td>
+                                  <td>{batch.stockCount}</td>
+                                  <td>
+                                    <span className={steamer.stockCount < 10 ? 'low-stock' : ''}>
+                                      {steamer.stockCount}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <span className={`status ${steamer.inStock ? 'in-stock' : 'out-of-stock'}`}>
+                                      {steamer.inStock ? '✓ In Stock' : '✗ Out of Stock'}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))
+                            )
+                          ) : (
+                            <tr key={steamer._id}>
+                              <td>{steamer.name}</td>
+                              <td>—</td>
+                              <td>—</td>
+                              <td>—</td>
+                              <td>
+                                <span className={steamer.stockCount < 10 ? 'low-stock' : ''}>
+                                  {steamer.stockCount}
+                                </span>
+                              </td>
+                              <td>
+                                <span className={`status ${steamer.inStock ? 'in-stock' : 'out-of-stock'}`}>
+                                  {steamer.inStock ? '✓ In Stock' : '✗ Out of Stock'}
+                                </span>
+                              </td>
+                            </tr>
+                          )
+                        )}
                       </tbody>
                     </table>
                   </div>
