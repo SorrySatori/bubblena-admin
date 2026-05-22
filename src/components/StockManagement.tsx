@@ -1,17 +1,30 @@
 import { useState, useEffect } from 'react'
 import './StockManagement.css'
 
-interface ProductVariant {
+interface BombVariant {
   weight: number
   price: number
   stockCount: number
   inStock: boolean
 }
 
-interface Product {
+interface BombBatch {
+  _id?: string
+  batchId: string
+  variants: BombVariant[]
+}
+
+interface BombLot {
+  _id?: string
+  lotNumber: string
+  batches: BombBatch[]
+}
+
+interface Bomb {
   _id: string
   name: string
-  variants: ProductVariant[]
+  acronym: string
+  lots: BombLot[]
   createdAt?: string
   updatedAt?: string
 }
@@ -41,13 +54,18 @@ interface DamagedProduct {
   updatedAt?: string
 }
 
+interface NewVariantEntry {
+  weight: string
+  stockCount: string
+}
+
 interface StockManagementProps {
   apiBaseUrl: string
 }
 
 const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'add' | 'add-damaged'>('overview')
-  const [products, setProducts] = useState<Product[]>([])
+  const [bombs, setBombs] = useState<Bomb[]>([])
   const [steamers, setSteamers] = useState<Steamer[]>([])
   const [damagedProducts, setDamagedProducts] = useState<DamagedProduct[]>([])
   const [loading, setLoading] = useState(false)
@@ -57,11 +75,13 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
   // Add form states
   const [productType, setProductType] = useState<'bathbomb' | 'steamer' | 'damaged'>('bathbomb')
   const [operation, setOperation] = useState<'add' | 'remove'>('add')
-  const [selectedProduct, setSelectedProduct] = useState('')
+  const [selectedBomb, setSelectedBomb] = useState('')
   const [selectedSteamer, setSelectedSteamer] = useState('')
   const [selectedDamaged, setSelectedDamaged] = useState('')
-  const [weightVariant, setWeightVariant] = useState('')
   const [quantity, setQuantity] = useState('')
+
+  // Multi-variant form for bath bombs
+  const [newVariants, setNewVariants] = useState<NewVariantEntry[]>([{ weight: '', stockCount: '' }])
 
   // New damaged product form states
   const [newDamagedBathBombType, setNewDamagedBathBombType] = useState('')
@@ -85,17 +105,17 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
         'x-api-key': import.meta.env.VITE_API_KEY || ''
       }
 
-      const [productsRes, steamersRes, damagedRes] = await Promise.all([
-        fetch(`${apiBaseUrl}/products`, { headers }),
+      const [bombsRes, steamersRes, damagedRes] = await Promise.all([
+        fetch(`${apiBaseUrl}/bombs`, { headers }),
         fetch(`${apiBaseUrl}/steamers`, { headers }),
         fetch(`${apiBaseUrl}/damaged-products`, { headers })
       ])
 
-      const productsData = await productsRes.json()
+      const bombsData = await bombsRes.json()
       const steamersData = await steamersRes.json()
       const damagedData = await damagedRes.json()
 
-      setProducts(productsData)
+      setBombs(bombsData)
       setSteamers(steamersData)
       setDamagedProducts(damagedData)
     } catch (err) {
@@ -113,65 +133,48 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
 
     try {
       if (productType === 'bathbomb') {
-        if (!selectedProduct || !weightVariant || !quantity) {
-          setError('Please fill in all fields for bath bomb')
+        if (!selectedBomb) {
+          setError('Please select a bath bomb')
           return
         }
 
-        // Find the product and update the specific variant
-        const product = products.find(p => p._id === selectedProduct)
-        if (!product) {
-          setError('Product not found')
+        // Validate variants
+        const validVariants = newVariants.filter(v => v.weight && v.stockCount)
+        if (validVariants.length === 0) {
+          setError('Please add at least one variant with weight and stock count')
           return
         }
 
-        const variantIndex = product.variants.findIndex(v => v.weight === parseFloat(weightVariant))
-        if (variantIndex === -1) {
-          setError('Weight variant not found')
+        const bomb = bombs.find(b => b._id === selectedBomb)
+        if (!bomb) {
+          setError('Bomb not found')
           return
         }
 
-        // Calculate new stock count
-        const currentStock = product.variants[variantIndex].stockCount
-        const quantityNum = parseInt(quantity)
-        const newStockCount = operation === 'add' 
-          ? currentStock + quantityNum 
-          : currentStock - quantityNum
+        const variants = validVariants.map(v => ({
+          weight: parseFloat(v.weight),
+          stockCount: parseInt(v.stockCount),
+        }))
 
-        // Validate stock count
-        if (newStockCount < 0) {
-          setError(`Cannot remove ${quantityNum} items. Only ${currentStock} in stock.`)
-          return
-        }
-
-        // Update the variant stock count
-        const updatedVariants = [...product.variants]
-        updatedVariants[variantIndex] = {
-          ...updatedVariants[variantIndex],
-          stockCount: newStockCount,
-          inStock: newStockCount > 0
-        }
-
-        const response = await fetch(`${apiBaseUrl}/products/${selectedProduct}`, {
-          method: 'PUT',
+        const response = await fetch(`${apiBaseUrl}/bombs/${selectedBomb}/add-batch`, {
+          method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'x-api-key': import.meta.env.VITE_API_KEY || ''
           },
-          body: JSON.stringify({
-            ...product,
-            variants: updatedVariants
-          }),
+          body: JSON.stringify({ variants }),
         })
 
         if (response.ok) {
-          const action = operation === 'add' ? 'added' : 'removed'
-          const preposition = operation === 'add' ? 'to' : 'from'
-          setSuccessMessage(`Successfully ${action} ${quantity} pieces ${preposition} ${product.name} (${weightVariant}g)`)
+          const updatedBomb = await response.json()
+          const lastLot = updatedBomb.lots[updatedBomb.lots.length - 1]
+          const lastBatch = lastLot.batches[lastLot.batches.length - 1]
+          setSuccessMessage(`Successfully added batch ${lastBatch.batchId} to LOT ${lastLot.lotNumber} (${bomb.name})`)
           fetchStock()
           resetForm()
         } else {
-          setError('Failed to update stock')
+          const errData = await response.json()
+          setError(errData.message || 'Failed to add batch')
         }
       } else if (productType === 'damaged') {
         // Damaged product
@@ -275,11 +278,11 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
   }
 
   const resetForm = () => {
-    setSelectedProduct('')
+    setSelectedBomb('')
     setSelectedSteamer('')
     setSelectedDamaged('')
-    setWeightVariant('')
     setQuantity('')
+    setNewVariants([{ weight: '', stockCount: '' }])
   }
 
   const resetDamagedForm = () => {
@@ -344,23 +347,31 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
   }
 
   const getTotalStock = () => {
-    const productStock = products.reduce((total, product) => {
-      return total + product.variants.reduce((sum, variant) => sum + variant.stockCount, 0)
+    const bombStock = bombs.reduce((total, bomb) => {
+      return total + bomb.lots.reduce((lotSum, lot) => {
+        return lotSum + lot.batches.reduce((batchSum, batch) => {
+          return batchSum + batch.variants.reduce((varSum, variant) => varSum + variant.stockCount, 0)
+        }, 0)
+      }, 0)
     }, 0)
     const steamerStock = steamers.reduce((total, steamer) => total + steamer.stockCount, 0)
     const damagedStock = damagedProducts.reduce((total, dp) => total + dp.stockCount, 0)
-    return productStock + steamerStock + damagedStock
+    return bombStock + steamerStock + damagedStock
   }
 
   const getLowStockItems = () => {
-    const lowStockProducts = products.flatMap(product =>
-      product.variants
-        .filter(variant => variant.stockCount < 10)
-        .map(variant => ({
-          name: `${product.name} (${variant.weight}g)`,
-          stock: variant.stockCount,
-          type: 'Bath Bomb'
-        }))
+    const lowStockBombs = bombs.flatMap(bomb =>
+      bomb.lots.flatMap(lot =>
+        lot.batches.flatMap(batch =>
+          batch.variants
+            .filter(variant => variant.stockCount < 10)
+            .map(variant => ({
+              name: `${bomb.name} (${variant.weight}g) [${batch.batchId}]`,
+              stock: variant.stockCount,
+              type: 'Bath Bomb'
+            }))
+        )
+      )
     )
 
     const lowStockSteamers = steamers
@@ -379,10 +390,24 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
         type: 'Damaged'
       }))
 
-    return [...lowStockProducts, ...lowStockSteamers, ...lowStockDamaged]
+    return [...lowStockBombs, ...lowStockSteamers, ...lowStockDamaged]
   }
 
-  const selectedProductData = products.find(p => p._id === selectedProduct)
+  const addVariantRow = () => {
+    setNewVariants([...newVariants, { weight: '', stockCount: '' }])
+  }
+
+  const removeVariantRow = (index: number) => {
+    if (newVariants.length > 1) {
+      setNewVariants(newVariants.filter((_, i) => i !== index))
+    }
+  }
+
+  const updateVariantRow = (index: number, field: keyof NewVariantEntry, value: string) => {
+    const updated = [...newVariants]
+    updated[index] = { ...updated[index], [field]: value }
+    setNewVariants(updated)
+  }
 
   return (
     <div className="stock-management">
@@ -416,7 +441,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
             </div>
             <div className="stat-card">
               <h3>Bath Bomb Types</h3>
-              <p className="stat-number">{products.length}</p>
+              <p className="stat-number">{bombs.length}</p>
             </div>
             <div className="stat-card">
               <h3>Steamer Types</h3>
@@ -438,7 +463,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
             <>
               <div className="stock-section">
                 <h2>🛁 Bath Bombs</h2>
-                {products.length === 0 ? (
+                {bombs.length === 0 ? (
                   <p className="no-data">No bath bombs found</p>
                 ) : (
                   <div className="stock-table">
@@ -446,6 +471,8 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
                       <thead>
                         <tr>
                           <th>Product Name</th>
+                          <th>LOT</th>
+                          <th>Batch</th>
                           <th>Weight</th>
                           <th>Price</th>
                           <th>Stock Count</th>
@@ -453,24 +480,30 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
                         </tr>
                       </thead>
                       <tbody>
-                        {products.map((product) =>
-                          product.variants.map((variant, index) => (
-                            <tr key={`${product._id}-${index}`}>
-                              <td>{product.name}</td>
-                              <td>{variant.weight}g</td>
-                              <td>{variant.price} Kč</td>
-                              <td>
-                                <span className={variant.stockCount < 10 ? 'low-stock' : ''}>
-                                  {variant.stockCount}
-                                </span>
-                              </td>
-                              <td>
-                                <span className={`status ${variant.inStock ? 'in-stock' : 'out-of-stock'}`}>
-                                  {variant.inStock ? '✓ In Stock' : '✗ Out of Stock'}
-                                </span>
-                              </td>
-                            </tr>
-                          ))
+                        {bombs.map((bomb) =>
+                          bomb.lots.map((lot) =>
+                            lot.batches.map((batch) =>
+                              batch.variants.map((variant, vIndex) => (
+                                <tr key={`${bomb._id}-${lot.lotNumber}-${batch.batchId}-${vIndex}`}>
+                                  <td>{bomb.name}</td>
+                                  <td>{lot.lotNumber}</td>
+                                  <td>{batch.batchId}</td>
+                                  <td>{variant.weight}g</td>
+                                  <td>{variant.price} Kč</td>
+                                  <td>
+                                    <span className={variant.stockCount < 10 ? 'low-stock' : ''}>
+                                      {variant.stockCount}
+                                    </span>
+                                  </td>
+                                  <td>
+                                    <span className={`status ${variant.inStock ? 'in-stock' : 'out-of-stock'}`}>
+                                      {variant.inStock ? '✓ In Stock' : '✗ Out of Stock'}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))
+                            )
+                          )
                         )}
                       </tbody>
                     </table>
@@ -587,29 +620,31 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
           {successMessage && <div className="success-message">{successMessage}</div>}
 
           <form onSubmit={handleAddStock} className="add-form">
-            <div className="form-group">
-              <label>Operation</label>
-              <div className="radio-group">
-                <label className="radio-label">
-                  <input
-                    type="radio"
-                    value="add"
-                    checked={operation === 'add'}
-                    onChange={(e) => setOperation(e.target.value as 'add' | 'remove')}
-                  />
-                  ➕ Add to Stock
-                </label>
-                <label className="radio-label">
-                  <input
-                    type="radio"
-                    value="remove"
-                    checked={operation === 'remove'}
-                    onChange={(e) => setOperation(e.target.value as 'add' | 'remove')}
-                  />
-                  ➖ Remove from Stock
-                </label>
+            {productType !== 'bathbomb' && (
+              <div className="form-group">
+                <label>Operation</label>
+                <div className="radio-group">
+                  <label className="radio-label">
+                    <input
+                      type="radio"
+                      value="add"
+                      checked={operation === 'add'}
+                      onChange={(e) => setOperation(e.target.value as 'add' | 'remove')}
+                    />
+                    ➕ Add to Stock
+                  </label>
+                  <label className="radio-label">
+                    <input
+                      type="radio"
+                      value="remove"
+                      checked={operation === 'remove'}
+                      onChange={(e) => setOperation(e.target.value as 'add' | 'remove')}
+                    />
+                    ➖ Remove from Stock
+                  </label>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="form-group">
               <label>Product Type</label>
@@ -638,41 +673,58 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
             {productType === 'bathbomb' ? (
               <>
                 <div className="form-group">
-                  <label htmlFor="product">Select Bath Bomb</label>
+                  <label htmlFor="bomb">Select Bath Bomb</label>
                   <select
-                    id="product"
-                    value={selectedProduct}
-                    onChange={(e) => {
-                      setSelectedProduct(e.target.value)
-                      setWeightVariant('')
-                    }}
+                    id="bomb"
+                    value={selectedBomb}
+                    onChange={(e) => setSelectedBomb(e.target.value)}
                     required
                   >
                     <option value="">-- Select Bath Bomb --</option>
-                    {products.map((product) => (
-                      <option key={product._id} value={product._id}>
-                        {product.name}
+                    {bombs.map((bomb) => (
+                      <option key={bomb._id} value={bomb._id}>
+                        {bomb.name} ({bomb.acronym})
                       </option>
                     ))}
                   </select>
                 </div>
 
-                {selectedProduct && selectedProductData && (
+                {selectedBomb && (
                   <div className="form-group">
-                    <label htmlFor="weight">Select Weight Variant</label>
-                    <select
-                      id="weight"
-                      value={weightVariant}
-                      onChange={(e) => setWeightVariant(e.target.value)}
-                      required
-                    >
-                      <option value="">-- Select Weight --</option>
-                      {selectedProductData.variants.map((variant, index) => (
-                        <option key={index} value={variant.weight}>
-                          {variant.weight}g (Current stock: {variant.stockCount})
-                        </option>
+                    <label>Variants for new batch</label>
+                    <div className="variants-list">
+                      {newVariants.map((variant, index) => (
+                        <div key={index} className="variant-row">
+                          <select
+                            value={variant.weight}
+                            onChange={(e) => updateVariantRow(index, 'weight', e.target.value)}
+                            required
+                          >
+                            <option value="">-- Weight --</option>
+                            <option value="150">150g</option>
+                            <option value="120">120g</option>
+                            <option value="115">115g</option>
+                            <option value="40">40g</option>
+                          </select>
+                          <input
+                            type="number"
+                            placeholder="Stock Count"
+                            value={variant.stockCount}
+                            onChange={(e) => updateVariantRow(index, 'stockCount', e.target.value)}
+                            min="0"
+                            required
+                          />
+                          {newVariants.length > 1 && (
+                            <button type="button" className="remove-variant-btn" onClick={() => removeVariantRow(index)}>
+                              ✕
+                            </button>
+                          )}
+                        </div>
                       ))}
-                    </select>
+                      <button type="button" className="add-variant-btn" onClick={addVariantRow}>
+                        + Add Variant
+                      </button>
+                    </div>
                   </div>
                 )}
               </>
@@ -712,24 +764,26 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
               </div>
             )}
 
-            <div className="form-group">
-              <label htmlFor="quantity">
-                {operation === 'add' ? 'Quantity to Add' : 'Quantity to Remove'}
-              </label>
-              <input
-                type="number"
-                id="quantity"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                min="1"
-                placeholder="Enter quantity"
-                required
-              />
-            </div>
+            {productType !== 'bathbomb' && (
+              <div className="form-group">
+                <label htmlFor="quantity">
+                  {operation === 'add' ? 'Quantity to Add' : 'Quantity to Remove'}
+                </label>
+                <input
+                  type="number"
+                  id="quantity"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  min="1"
+                  placeholder="Enter quantity"
+                  required
+                />
+              </div>
+            )}
 
             <div className="form-actions">
               <button type="submit" className={`submit-button ${operation === 'remove' ? 'remove-button' : ''}`}>
-                {operation === 'add' ? '➕ Add to Stock' : '➖ Remove from Stock'}
+                {productType === 'bathbomb' ? '➕ Add Batch' : operation === 'add' ? '➕ Add to Stock' : '➖ Remove from Stock'}
               </button>
               <button type="button" onClick={resetForm} className="reset-button">
                 Reset
