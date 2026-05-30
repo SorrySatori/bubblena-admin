@@ -48,7 +48,7 @@ const Recipes = () => {
         unit: material?.unit || 'g',
       }
     } else {
-      (updated[index] as Record<string, unknown>)[field] = value
+      updated[index] = { ...updated[index], [field]: value }
     }
     setIngredients(updated)
   }
