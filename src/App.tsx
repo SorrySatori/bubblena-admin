@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react'
 import './App.css'
 import Login from './components/Login'
 import StockManagement from './components/StockManagement'
+import RawMaterials from './components/RawMaterials'
+import Recipes from './components/Recipes'
+import ProductionList from './components/ProductionList'
+import BatchEvidence from './components/BatchEvidence'
 
 interface OrderItem {
   id: string
@@ -37,7 +41,7 @@ const API_URL = `${API_BASE_URL}/order`
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [authLoading, setAuthLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'orders' | 'stock'>('orders')
+  const [activeTab, setActiveTab] = useState<'orders' | 'stock' | 'raw-materials' | 'recipes' | 'production' | 'batch-evidence'>('orders')
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -52,10 +56,10 @@ function App() {
       if (data.success) {
         setOrders(data.orders)
       } else {
-        setError('Failed to fetch orders')
+        setError('Nepodařilo se načíst objednávky')
       }
     } catch (err) {
-      setError('Error connecting to server. Make sure the backend is running.')
+      setError('Chyba připojení k serveru. Ujistěte se, že backend běží.')
       console.error('Error fetching orders:', err)
     } finally {
       setLoading(false)
@@ -120,10 +124,10 @@ function App() {
             : order
         ))
       } else {
-        alert('Failed to update order status')
+        alert('Nepodařilo se aktualizovat stav objednávky')
       }
     } catch (err) {
-      alert('Error updating order status')
+      alert('Chyba při aktualizaci stavu objednávky')
       console.error('Error updating order:', err)
     }
   }
@@ -163,7 +167,7 @@ function App() {
     return (
       <div className="app">
         <div className="container">
-          <div className="loading">Loading...</div>
+          <div className="loading">Načítání...</div>
         </div>
       </div>
     )
@@ -180,10 +184,10 @@ function App() {
           <div className="header-content">
             <div>
               <h1>🛍️ Bubblena Admin Panel</h1>
-              <p>Manage your orders and track their status</p>
+              <p>Správa objednávek a sledování stavu</p>
             </div>
             <button onClick={handleLogout} className="logout-button">
-              Logout
+              Odhlásit se
             </button>
           </div>
         </header>
@@ -193,13 +197,37 @@ function App() {
             className={`main-tab ${activeTab === 'orders' ? 'active' : ''}`}
             onClick={() => setActiveTab('orders')}
           >
-            📦 Orders
+            📦 Objednávky
           </button>
           <button
             className={`main-tab ${activeTab === 'stock' ? 'active' : ''}`}
             onClick={() => setActiveTab('stock')}
           >
-            📊 Stock Management
+            📊 Sklad koulí
+          </button>
+          <button
+            className={`main-tab ${activeTab === 'raw-materials' ? 'active' : ''}`}
+            onClick={() => setActiveTab('raw-materials')}
+          >
+            🧪 Sklad surovin
+          </button>
+          <button
+            className={`main-tab ${activeTab === 'recipes' ? 'active' : ''}`}
+            onClick={() => setActiveTab('recipes')}
+          >
+            📖 Recepty
+          </button>
+          <button
+            className={`main-tab ${activeTab === 'production' ? 'active' : ''}`}
+            onClick={() => setActiveTab('production')}
+          >
+            🏭 Výroba
+          </button>
+          <button
+            className={`main-tab ${activeTab === 'batch-evidence' ? 'active' : ''}`}
+            onClick={() => setActiveTab('batch-evidence')}
+          >
+            📋 Evidence šarží
           </button>
         </div>
 
@@ -207,33 +235,33 @@ function App() {
           <>
         <div className="stats">
           <div className="stat-card">
-            <h3>Total Orders</h3>
+            <h3>Celkem objednávek</h3>
             <p>{stats.total}</p>
           </div>
           <div className="stat-card">
-            <h3>Pending</h3>
+            <h3>Čekající</h3>
             <p>{stats.pending}</p>
           </div>
           <div className="stat-card">
-            <h3>Processing</h3>
+            <h3>Zpracovává se</h3>
             <p>{stats.processing}</p>
           </div>
           <div className="stat-card">
-            <h3>Shipped</h3>
+            <h3>Odesláno</h3>
             <p>{stats.shipped}</p>
           </div>
           <div className="stat-card">
-            <h3>Delivered</h3>
+            <h3>Doručeno</h3>
             <p>{stats.delivered}</p>
           </div>
           <div className="stat-card">
-            <h3>Cancelled</h3>
+            <h3>Zrušeno</h3>
             <p>{stats.cancelled}</p>
           </div>
         </div>
 
         <div className="orders-section">
-          <h2>Orders</h2>
+          <h2>Objednávky</h2>
           
           {error && (
             <div className="error">
@@ -242,20 +270,20 @@ function App() {
           )}
 
           {loading ? (
-            <div className="loading">Loading orders...</div>
+            <div className="loading">Načítání objednávek...</div>
           ) : orders.length === 0 ? (
-            <div className="no-orders">No orders found</div>
+            <div className="no-orders">Žádné objednávky</div>
           ) : (
             <div className="orders-table">
               <table>
                 <thead>
                   <tr>
-                    <th>Order ID</th>
-                    <th>Customer</th>
-                    <th>Items</th>
-                    <th>Total</th>
-                    <th>Status</th>
-                    <th>Date</th>
+                    <th>ID objednávky</th>
+                    <th>Zákazník</th>
+                    <th>Položky</th>
+                    <th>Celkem</th>
+                    <th>Stav</th>
+                    <th>Datum</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -274,7 +302,7 @@ function App() {
                           </div>
                         </div>
                       </td>
-                      <td>{order.items.length} item(s)</td>
+                      <td>{order.items.length} položek</td>
                       <td>
                         <span className="order-total">
                           {formatPrice(order.totals.total)}
@@ -286,11 +314,11 @@ function App() {
                           value={order.status}
                           onChange={(e) => updateOrderStatus(order.orderId, e.target.value)}
                         >
-                          <option value="pending">Pending</option>
-                          <option value="processing">Processing</option>
-                          <option value="shipped">Shipped</option>
-                          <option value="delivered">Delivered</option>
-                          <option value="cancelled">Cancelled</option>
+                          <option value="pending">Čekající</option>
+                          <option value="processing">Zpracovává se</option>
+                          <option value="shipped">Odesláno</option>
+                          <option value="delivered">Doručeno</option>
+                          <option value="cancelled">Zrušeno</option>
                         </select>
                       </td>
                       <td>
@@ -311,6 +339,11 @@ function App() {
         {activeTab === 'stock' && (
           <StockManagement apiBaseUrl={API_BASE_URL} />
         )}
+
+        {activeTab === 'raw-materials' && <RawMaterials />}
+        {activeTab === 'recipes' && <Recipes />}
+        {activeTab === 'production' && <ProductionList apiBaseUrl={API_BASE_URL} />}
+        {activeTab === 'batch-evidence' && <BatchEvidence apiBaseUrl={API_BASE_URL} />}
       </div>
     </div>
   )

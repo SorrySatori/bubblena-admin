@@ -1,0 +1,522 @@
+/* Warehouse shared styles */
+
+.warehouse-section {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.warehouse-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.warehouse-header h2 {
+  color: #333;
+  font-size: 1.6rem;
+  margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Buttons */
+.btn-primary {
+  padding: 0.6rem 1.2rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary:hover {
+  background: #5a6fd6;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+}
+
+.btn-secondary {
+  padding: 0.6rem 1.2rem;
+  background: #f0f0f0;
+  color: #333;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  background: #e0e0e0;
+}
+
+.btn-danger {
+  background: #ff4757;
+  color: white;
+  border: none;
+}
+
+.btn-danger:hover {
+  background: #e0394a;
+}
+
+.btn-sm {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-sm.btn-primary {
+  background: #667eea;
+  color: white;
+  border: none;
+}
+
+.btn-sm.btn-secondary {
+  background: #f0f0f0;
+  color: #333;
+  border: 1px solid #ddd;
+}
+
+.btn-sm.btn-danger {
+  background: #ff4757;
+  color: white;
+  border: none;
+}
+
+/* Alerts */
+.alerts-section {
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.alerts-section h3 {
+  color: #856404;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+}
+
+.alerts-toggle {
+  cursor: pointer;
+  user-select: none;
+}
+
+.alerts-toggle:hover {
+  opacity: 0.8;
+}
+
+.alerts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.alert-item {
+  color: #856404;
+  font-size: 0.9rem;
+}
+
+/* Forms */
+.form-card {
+  background: #f8f9ff;
+  border: 1px solid #e0e4ff;
+  border-radius: 10px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.form-card h3 {
+  color: #333;
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+}
+
+.form-row {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1;
+  min-width: 150px;
+}
+
+.form-group label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  padding: 0.6rem 0.8rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+}
+
+.form-group textarea {
+  min-height: 60px;
+  resize: vertical;
+}
+
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+/* Ingredients */
+.ingredients-section {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #eee;
+}
+
+.ingredients-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.ingredients-header h4 {
+  font-size: 1rem;
+  color: #333;
+  margin: 0;
+}
+
+.ingredient-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem;
+  background: #f9f9f9;
+  border-radius: 6px;
+}
+
+.ingredient-row .btn-sm {
+  margin-bottom: 0.3rem;
+}
+
+/* Materials list */
+.materials-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.material-card {
+  border: 1px solid #eee;
+  border-radius: 10px;
+  padding: 1rem 1.5rem;
+  transition: all 0.2s;
+}
+
+.material-card:hover {
+  border-color: #667eea;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.material-card.low-stock {
+  border-color: #ffc107;
+  background: #fffdf5;
+}
+
+.material-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.material-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.material-info h4 {
+  margin: 0;
+  color: #333;
+  font-size: 1.1rem;
+}
+
+.stock-badge {
+  background: #e8eaff;
+  color: #667eea;
+  padding: 0.2rem 0.6rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.low-badge {
+  background: #fff3cd;
+  color: #856404;
+  padding: 0.2rem 0.6rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.material-actions {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.material-meta {
+  color: #666;
+  font-size: 0.85rem;
+  margin-top: 0.4rem;
+}
+
+.material-meta a {
+  color: #667eea;
+  text-decoration: none;
+}
+
+.material-meta a:hover {
+  text-decoration: underline;
+}
+
+/* Edit form inline */
+.edit-form {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f8f9ff;
+  border-radius: 8px;
+  border: 1px solid #e0e4ff;
+}
+
+.edit-form h5 {
+  margin: 0 0 0.75rem 0;
+  color: #333;
+}
+
+/* Batches table */
+.batches-list {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+}
+
+.batches-list h5 {
+  color: #333;
+  margin-bottom: 0.75rem;
+  font-size: 0.95rem;
+}
+
+.batches-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.batches-table th {
+  background: #f5f5f5;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  font-weight: 600;
+  color: #555;
+  border-bottom: 2px solid #eee;
+}
+
+.batches-table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.batches-table tr.consumed {
+  opacity: 0.5;
+}
+
+.batches-table tr.low-stock-row td {
+  background: #fff3cd;
+}
+
+.badge-consumed {
+  background: #e0e0e0;
+  color: #666;
+  padding: 0.15rem 0.5rem;
+  border-radius: 10px;
+  font-size: 0.75rem;
+}
+
+.badge-active {
+  background: #d4edda;
+  color: #155724;
+  padding: 0.15rem 0.5rem;
+  border-radius: 10px;
+  font-size: 0.75rem;
+}
+
+.text-danger {
+  color: #dc3545;
+  font-weight: 600;
+}
+
+.text-success {
+  color: #28a745;
+  font-weight: 600;
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  color: #999;
+  padding: 2rem;
+  font-style: italic;
+}
+
+/* Messages */
+.error-message {
+  background: #f8d7da;
+  border: 1px solid #f5c6cb;
+  color: #721c24;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.success-message {
+  background: #d4edda;
+  border: 1px solid #c3e6cb;
+  color: #155724;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+/* Search */
+.search-bar {
+  margin-bottom: 1.5rem;
+}
+
+.search-bar input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.2s;
+}
+
+.search-bar input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+}
+
+/* Recipe preview */
+.recipe-preview {
+  background: #f0f4ff;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.recipe-preview h5 {
+  margin: 0 0 0.5rem 0;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.recipe-preview ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.recipe-preview li {
+  padding: 0.2rem 0;
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.recipe-preview li::before {
+  content: '• ';
+  color: #667eea;
+}
+
+/* Sizes summary */
+.sizes-summary {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+/* Recipes list */
+.recipes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Responsive - make tabs wrap on smaller screens */
+@media (max-width: 768px) {
+  .warehouse-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .form-row {
+    flex-direction: column;
+  }
+
+  .ingredient-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .material-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .material-actions {
+    margin-top: 0.5rem;
+  }
+}
