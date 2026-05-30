@@ -73,25 +73,28 @@ body {
 
 .main-tabs {
   display: flex;
-  gap: 1rem;
+  gap: 0.5rem;
   margin-bottom: 2rem;
   background: rgba(255, 255, 255, 0.1);
   padding: 0.5rem;
   border-radius: 12px;
   backdrop-filter: blur(10px);
+  flex-wrap: wrap;
 }
 
 .main-tab {
   flex: 1;
-  padding: 1rem 2rem;
+  padding: 0.75rem 1rem;
   background: rgba(255, 255, 255, 0.2);
   color: white;
   border: 2px solid transparent;
   border-radius: 8px;
-  font-size: 1.1rem;
+  font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
+  min-width: fit-content;
+  white-space: nowrap;
 }
 
 .main-tab:hover {

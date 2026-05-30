@@ -29,7 +29,7 @@ function Login({ onLoginSuccess }: LoginProps) {
         localStorage.setItem('adminAuth', credentials)
         onLoginSuccess()
       } else {
-        setError('Invalid credentials')
+        setError('Nesprávné přihlašovací údaje')
       }
       setLoading(false)
     }, 500)
@@ -40,39 +40,39 @@ function Login({ onLoginSuccess }: LoginProps) {
       <div className="login-card">
         <div className="login-header">
           <h1>🛍️ Bubblena Admin</h1>
-          <p>Sign in to manage orders</p>
+          <p>Přihlaste se pro správu objednávek</p>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
           {error && <div className="login-error">{error}</div>}
 
           <div className="form-group">
-            <label htmlFor="username">Username</label>
+            <label htmlFor="username">Uživatelské jméno</label>
             <input
               type="text"
               id="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="Enter username"
+              placeholder="Zadejte uživatelské jméno"
               required
               autoFocus
             />
           </div>
 
           <div className="form-group">
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password">Heslo</label>
             <input
               type="password"
               id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter password"
+              placeholder="Zadejte heslo"
               required
             />
           </div>
 
           <button type="submit" className="login-button" disabled={loading}>
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? 'Přihlašování...' : 'Přihlásit se'}
           </button>
         </form>
 

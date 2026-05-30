@@ -132,7 +132,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
       setSteamers(steamersData)
       setDamagedProducts(damagedData)
     } catch (err) {
-      setError('Error loading stock data. Make sure the backend is running.')
+      setError('Chyba načítání dat skladu. Ujistěte se, že backend běží.')
       console.error('Error fetching stock:', err)
     } finally {
       setLoading(false)
@@ -147,20 +147,20 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
     try {
       if (productType === 'bathbomb') {
         if (!selectedBomb) {
-          setError('Please select a bath bomb')
+          setError('Vyberte prosím koupelovou kouli')
           return
         }
 
         // Validate variants
         const validVariants = newVariants.filter(v => v.weight && v.stockCount)
         if (validVariants.length === 0) {
-          setError('Please add at least one variant with weight and stock count')
+          setError('Přidejte alespoň jednu variantu s váhou a počtem kusů')
           return
         }
 
         const bomb = bombs.find(b => b._id === selectedBomb)
         if (!bomb) {
-          setError('Bomb not found')
+          setError('Koule nenalezena')
           return
         }
 
@@ -182,23 +182,23 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
           const updatedBomb = await response.json()
           const lastLot = updatedBomb.lots[updatedBomb.lots.length - 1]
           const lastBatch = lastLot.batches[lastLot.batches.length - 1]
-          setSuccessMessage(`Successfully added batch ${lastBatch.batchId} to LOT ${lastLot.lotNumber} (${bomb.name})`)
+          setSuccessMessage(`Úspěšně přidána batch ${lastBatch.batchId} do LOT ${lastLot.lotNumber} (${bomb.name})`)
           fetchStock()
           resetForm()
         } else {
           const errData = await response.json()
-          setError(errData.message || 'Failed to add batch')
+          setError(errData.message || 'Nepodařilo se přidat batch')
         }
       } else if (productType === 'damaged') {
         // Damaged product
         if (!selectedDamaged || !quantity) {
-          setError('Please fill in all fields for damaged product')
+          setError('Vyplňte prosím všechna pole')
           return
         }
 
         const damaged = damagedProducts.find(d => d._id === selectedDamaged)
         if (!damaged) {
-          setError('Damaged product not found')
+          setError('Poškozený produkt nenalezen')
           return
         }
 
@@ -209,7 +209,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
           : currentStock - quantityNum
 
         if (newStockCount < 0) {
-          setError(`Cannot remove ${quantityNum} items. Only ${currentStock} in stock.`)
+          setError(`Nelze odebrat ${quantityNum} ks. Skladem pouze ${currentStock}.`)
           return
         }
 
@@ -227,24 +227,23 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
         })
 
         if (response.ok) {
-          const action = operation === 'add' ? 'added' : 'removed'
-          const preposition = operation === 'add' ? 'to' : 'from'
-          setSuccessMessage(`Successfully ${action} ${quantity} pieces ${preposition} ${damaged.bathBombType}`)
+          const action = operation === 'add' ? 'přidáno' : 'odebráno'
+          setSuccessMessage(`Úspěšně ${action} ${quantity} ks - ${damaged.bathBombType}`)
           fetchStock()
           resetForm()
         } else {
-          setError('Failed to update stock')
+          setError('Nepodařilo se aktualizovat sklad')
         }
       } else {
         // Steamer
         if (!selectedSteamer || !quantity) {
-          setError('Please fill in all fields for steamer')
+          setError('Vyplňte prosím všechna pole pro steamer')
           return
         }
 
         const steamer = steamers.find(s => s._id === selectedSteamer)
         if (!steamer) {
-          setError('Steamer not found')
+          setError('Steamer nenalezen')
           return
         }
 
@@ -265,11 +264,11 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
             const updatedSteamer = await response.json()
             const lastLot = updatedSteamer.lots[updatedSteamer.lots.length - 1]
             const lastBatch = lastLot.batches[lastLot.batches.length - 1]
-            setSuccessMessage(`Successfully added batch ${lastBatch.batchId} (${quantity} pcs) to ${steamer.name} [LOT ${lastLot.lotNumber}]`)
+            setSuccessMessage(`Úspěšně přidána batch ${lastBatch.batchId} (${quantity} ks) do ${steamer.name} [LOT ${lastLot.lotNumber}]`)
             fetchStock()
             resetForm()
           } else {
-            setError('Failed to add batch')
+            setError('Nepodařilo se přidat batch')
           }
         } else {
           // Remove: update stockCount directly
@@ -277,7 +276,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
           const newStockCount = currentStock - quantityNum
 
           if (newStockCount < 0) {
-            setError(`Cannot remove ${quantityNum} items. Only ${currentStock} in stock.`)
+            setError(`Nelze odebrat ${quantityNum} ks. Skladem pouze ${currentStock}.`)
             return
           }
 
@@ -295,16 +294,16 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
           })
 
           if (response.ok) {
-            setSuccessMessage(`Successfully removed ${quantity} pieces from ${steamer.name}`)
+            setSuccessMessage(`Úspěšně odebráno ${quantity} ks z ${steamer.name}`)
             fetchStock()
             resetForm()
           } else {
-            setError('Failed to update stock')
+            setError('Nepodařilo se aktualizovat sklad')
           }
         }
       }
     } catch (err) {
-      setError('Error updating stock')
+      setError('Chyba při aktualizaci skladu')
       console.error('Error:', err)
     }
   }
@@ -333,7 +332,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
     setSuccessMessage(null)
 
     if (!newDamagedBathBombType || !newDamagedWeight || !newDamagedPrice || !newDamagedStockCount) {
-      setError('Please fill in all required fields')
+      setError('Vyplňte prosím všechna povinná pole')
       return
     }
 
@@ -357,14 +356,14 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
       })
 
       if (response.ok) {
-        setSuccessMessage(`Successfully created damaged product: ${newDamagedBathBombType}`)
+        setSuccessMessage(`Úspěšně vytvořen poškozený produkt: ${newDamagedBathBombType}`)
         fetchStock()
         resetDamagedForm()
       } else {
-        setError('Failed to create damaged product')
+        setError('Nepodařilo se vytvořit poškozený produkt')
       }
     } catch (err) {
-      setError('Error creating damaged product')
+      setError('Chyba při vytváření poškozeného produktu')
       console.error('Error:', err)
     }
   }
@@ -400,7 +399,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
             .map(variant => ({
               name: `${bomb.name} (${variant.weight}g) [${batch.batchId}]`,
               stock: variant.stockCount,
-              type: 'Bath Bomb'
+              type: 'Koule'
             }))
         )
       )
@@ -419,7 +418,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
       .map(dp => ({
         name: `${dp.bathBombType} (${getDamageLevelLabel(dp.damageLevel)})`,
         stock: dp.stockCount,
-        type: 'Damaged'
+        type: 'Poškozené'
       }))
 
     return [...lowStockBombs, ...lowStockSteamers, ...lowStockDamaged]
@@ -448,19 +447,19 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
           className={`tab ${activeTab === 'overview' ? 'active' : ''}`}
           onClick={() => setActiveTab('overview')}
         >
-          📊 Stock Overview
+            📊 Přehled skladu
         </button>
         <button
           className={`tab ${activeTab === 'add' ? 'active' : ''}`}
           onClick={() => setActiveTab('add')}
         >
-          ➕ Add Stock
+          ➕ Přidat na sklad
         </button>
         <button
           className={`tab ${activeTab === 'add-damaged' ? 'active' : ''}`}
           onClick={() => setActiveTab('add-damaged')}
         >
-          💔 Add Damaged Product
+          💔 Přidat poškozený produkt
         </button>
       </div>
 
@@ -468,47 +467,47 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
         <div className="overview-section">
           <div className="stock-stats">
             <div className="stat-card">
-              <h3>Total Items in Stock</h3>
+              <h3>Celkem na skladě</h3>
               <p className="stat-number">{getTotalStock()}</p>
             </div>
             <div className="stat-card">
-              <h3>Bath Bomb Types</h3>
+              <h3>Druhy koulí</h3>
               <p className="stat-number">{bombs.length}</p>
             </div>
             <div className="stat-card">
-              <h3>Steamer Types</h3>
+              <h3>Druhy steamerů</h3>
               <p className="stat-number">{steamers.length}</p>
             </div>
             <div className="stat-card">
-              <h3>Damaged Products</h3>
+              <h3>Poškozené produkty</h3>
               <p className="stat-number">{damagedProducts.length}</p>
             </div>
             <div className="stat-card warning">
-              <h3>Low Stock Items</h3>
+              <h3>Nízký stav</h3>
               <p className="stat-number">{getLowStockItems().length}</p>
             </div>
           </div>
 
           {loading ? (
-            <div className="loading">Loading stock data...</div>
+            <div className="loading">Načítání dat skladu...</div>
           ) : (
             <>
               <div className="stock-section">
-                <h2>🛁 Bath Bombs</h2>
+                <h2>🛜 Koupelové koule</h2>
                 {bombs.length === 0 ? (
-                  <p className="no-data">No bath bombs found</p>
+                  <p className="no-data">Žádné koupelové koule nenalezeny</p>
                 ) : (
                   <div className="stock-table">
                     <table>
                       <thead>
                         <tr>
-                          <th>Product Name</th>
+                          <th>Název</th>
                           <th>LOT</th>
                           <th>Batch</th>
-                          <th>Weight</th>
-                          <th>Price</th>
-                          <th>Stock Count</th>
-                          <th>Status</th>
+                          <th>Váha</th>
+                          <th>Cena</th>
+                          <th>Skladem</th>
+                          <th>Stav</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -529,7 +528,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
                                   </td>
                                   <td>
                                     <span className={`status ${variant.inStock ? 'in-stock' : 'out-of-stock'}`}>
-                                      {variant.inStock ? '✓ In Stock' : '✗ Out of Stock'}
+                                      {variant.inStock ? '✓ Skladem' : '✗ Vyprodáno'}
                                     </span>
                                   </td>
                                 </tr>
@@ -544,20 +543,20 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
               </div>
 
               <div className="stock-section">
-                <h2>💨 Steamers</h2>
+                <h2>💨 Steamery</h2>
                 {steamers.length === 0 ? (
-                  <p className="no-data">No steamers found</p>
+                  <p className="no-data">Žádné steamery nenalezeny</p>
                 ) : (
                   <div className="stock-table">
                     <table>
                       <thead>
                         <tr>
-                          <th>Product Name</th>
+                          <th>Název</th>
                           <th>LOT</th>
                           <th>Batch</th>
-                          <th>Batch Stock</th>
-                          <th>Total Stock</th>
-                          <th>Status</th>
+                          <th>Ks v batchi</th>
+                          <th>Celkem</th>
+                          <th>Stav</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -577,7 +576,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
                                   </td>
                                   <td>
                                     <span className={`status ${steamer.inStock ? 'in-stock' : 'out-of-stock'}`}>
-                                      {steamer.inStock ? '✓ In Stock' : '✗ Out of Stock'}
+                                      {steamer.inStock ? '✓ Skladem' : '✗ Vyprodáno'}
                                     </span>
                                   </td>
                                 </tr>
@@ -596,7 +595,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
                               </td>
                               <td>
                                 <span className={`status ${steamer.inStock ? 'in-stock' : 'out-of-stock'}`}>
-                                  {steamer.inStock ? '✓ In Stock' : '✗ Out of Stock'}
+                                  {steamer.inStock ? '✓ Skladem' : '✗ Vyprodáno'}
                                 </span>
                               </td>
                             </tr>
@@ -609,20 +608,20 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
               </div>
 
               <div className="stock-section">
-                <h2>💔 Damaged Products (Zachraň kouli)</h2>
+                <h2>💔 Poškozené produkty (Zachraň kouli)</h2>
                 {damagedProducts.length === 0 ? (
-                  <p className="no-data">No damaged products found</p>
+                  <p className="no-data">Žádné poškozené produkty nenalezeny</p>
                 ) : (
                   <div className="stock-table">
                     <table>
                       <thead>
                         <tr>
-                          <th>Bath Bomb Type</th>
-                          <th>Weight</th>
-                          <th>Price</th>
-                          <th>Damage Level</th>
-                          <th>Stock Count</th>
-                          <th>Status</th>
+                          <th>Druh koule</th>
+                          <th>Váha</th>
+                          <th>Cena</th>
+                          <th>Stupeň poškození</th>
+                          <th>Skladem</th>
+                          <th>Stav</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -639,7 +638,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
                             </td>
                             <td>
                               <span className={`status ${dp.inStock ? 'in-stock' : 'out-of-stock'}`}>
-                                {dp.inStock ? '✓ In Stock' : '✗ Out of Stock'}
+                                {dp.inStock ? '✓ Skladem' : '✗ Vyprodáno'}
                               </span>
                             </td>
                           </tr>
@@ -652,13 +651,13 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
 
               {getLowStockItems().length > 0 && (
                 <div className="stock-section low-stock-alert">
-                  <h2>⚠️ Low Stock Alert</h2>
+                  <h2>⚠️ Nízký stav zásob</h2>
                   <div className="low-stock-list">
                     {getLowStockItems().map((item, index) => (
                       <div key={index} className="low-stock-item">
                         <span className="item-name">{item.name}</span>
                         <span className="item-type">{item.type}</span>
-                        <span className="item-stock">{item.stock} left</span>
+                        <span className="item-stock">{item.stock} ks</span>
                       </div>
                     ))}
                   </div>
@@ -671,7 +670,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
 
       {activeTab === 'add' && (
         <div className="add-section">
-          <h2>Manage Stock</h2>
+          <h2>Správa skladu</h2>
           
           {error && <div className="error-message">{error}</div>}
           {successMessage && <div className="success-message">{successMessage}</div>}
@@ -679,7 +678,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
           <form onSubmit={handleAddStock} className="add-form">
             {productType !== 'bathbomb' && (
               <div className="form-group">
-                <label>Operation</label>
+                <label>Operace</label>
                 <div className="radio-group">
                   <label className="radio-label">
                     <input
@@ -688,7 +687,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
                       checked={operation === 'add'}
                       onChange={(e) => setOperation(e.target.value as 'add' | 'remove')}
                     />
-                    ➕ Add to Stock
+                    ➕ Přidat na sklad
                   </label>
                   <label className="radio-label">
                     <input
@@ -697,14 +696,14 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
                       checked={operation === 'remove'}
                       onChange={(e) => setOperation(e.target.value as 'add' | 'remove')}
                     />
-                    ➖ Remove from Stock
+                    ➖ Odebrat ze skladu
                   </label>
                 </div>
               </div>
             )}
 
             <div className="form-group">
-              <label>Product Type</label>
+              <label>Typ produktu</label>
               <div className="radio-group">
                 <label className="radio-label">
                   <input
@@ -713,7 +712,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
                     checked={productType === 'bathbomb'}
                     onChange={(e) => setProductType(e.target.value as 'bathbomb' | 'steamer' | 'damaged')}
                   />
-                  🛁 Bath Bomb
+                  🛜 Koupelová koule
                 </label>
                 <label className="radio-label">
                   <input
@@ -730,14 +729,14 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
             {productType === 'bathbomb' ? (
               <>
                 <div className="form-group">
-                  <label htmlFor="bomb">Select Bath Bomb</label>
+                  <label htmlFor="bomb">Vyberte koupelové koule</label>
                   <select
                     id="bomb"
                     value={selectedBomb}
                     onChange={(e) => setSelectedBomb(e.target.value)}
                     required
                   >
-                    <option value="">-- Select Bath Bomb --</option>
+                    <option value="">-- Vyberte kouli --</option>
                     {bombs.map((bomb) => (
                       <option key={bomb._id} value={bomb._id}>
                         {bomb.name} ({bomb.acronym})
@@ -748,7 +747,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
 
                 {selectedBomb && (
                   <div className="form-group">
-                    <label>Variants for new batch</label>
+                    <label>Varianty pro novou batch</label>
                     <div className="variants-list">
                       {newVariants.map((variant, index) => (
                         <div key={index} className="variant-row">
@@ -757,7 +756,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
                             onChange={(e) => updateVariantRow(index, 'weight', e.target.value)}
                             required
                           >
-                            <option value="">-- Weight --</option>
+                            <option value="">-- Váha --</option>
                             <option value="150">150g</option>
                             <option value="120">120g</option>
                             <option value="115">115g</option>
@@ -765,7 +764,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
                           </select>
                           <input
                             type="number"
-                            placeholder="Stock Count"
+                            placeholder="Počet ks"
                             value={variant.stockCount}
                             onChange={(e) => updateVariantRow(index, 'stockCount', e.target.value)}
                             min="0"
@@ -779,7 +778,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
                         </div>
                       ))}
                       <button type="button" className="add-variant-btn" onClick={addVariantRow}>
-                        + Add Variant
+                        + Přidat variantu
                       </button>
                     </div>
                   </div>
@@ -787,34 +786,34 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
               </>
             ) : productType === 'damaged' ? (
               <div className="form-group">
-                <label htmlFor="damaged">Select Damaged Product</label>
+                <label htmlFor="damaged">Vyberte poškozený produkt</label>
                 <select
                   id="damaged"
                   value={selectedDamaged}
                   onChange={(e) => setSelectedDamaged(e.target.value)}
                   required
                 >
-                  <option value="">-- Select Damaged Product --</option>
+                  <option value="">-- Vyberte poškozený produkt --</option>
                   {damagedProducts.map((dp) => (
                     <option key={dp._id} value={dp._id}>
-                      {dp.bathBombType} - {getDamageLevelLabel(dp.damageLevel)} (Current stock: {dp.stockCount})
+                      {dp.bathBombType} - {getDamageLevelLabel(dp.damageLevel)} (Skladem: {dp.stockCount})
                     </option>
                   ))}
                 </select>
               </div>
             ) : (
               <div className="form-group">
-                <label htmlFor="steamer">Select Steamer</label>
+                <label htmlFor="steamer">Vyberte steamer</label>
                 <select
                   id="steamer"
                   value={selectedSteamer}
                   onChange={(e) => setSelectedSteamer(e.target.value)}
                   required
                 >
-                  <option value="">-- Select Steamer --</option>
+                  <option value="">-- Vyberte steamer --</option>
                   {steamers.map((steamer) => (
                     <option key={steamer._id} value={steamer._id}>
-                      {steamer.name} (Current stock: {steamer.stockCount})
+                      {steamer.name} (Skladem: {steamer.stockCount})
                     </option>
                   ))}
                 </select>
@@ -824,7 +823,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
             {productType !== 'bathbomb' && (
               <div className="form-group">
                 <label htmlFor="quantity">
-                  {operation === 'add' ? 'Quantity to Add' : 'Quantity to Remove'}
+                  {operation === 'add' ? 'Počet k přidání' : 'Počet k odebrání'}
                 </label>
                 <input
                   type="number"
@@ -832,7 +831,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
                   value={quantity}
                   onChange={(e) => setQuantity(e.target.value)}
                   min="1"
-                  placeholder="Enter quantity"
+                  placeholder="Zadejte počet"
                   required
                 />
               </div>
@@ -840,10 +839,10 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
 
             <div className="form-actions">
               <button type="submit" className={`submit-button ${operation === 'remove' ? 'remove-button' : ''}`}>
-                {productType === 'bathbomb' ? '➕ Add Batch' : operation === 'add' ? '➕ Add to Stock' : '➖ Remove from Stock'}
+                {productType === 'bathbomb' ? '➕ Přidat batch' : operation === 'add' ? '➕ Přidat na sklad' : '➖ Odebrat ze skladu'}
               </button>
               <button type="button" onClick={resetForm} className="reset-button">
-                Reset
+                Resetovat
               </button>
             </div>
           </form>
@@ -852,45 +851,45 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
 
       {activeTab === 'add-damaged' && (
         <div className="add-section">
-          <h2>Add New Damaged Product</h2>
+          <h2>Přidat nový poškozený produkt</h2>
           
           {error && <div className="error-message">{error}</div>}
           {successMessage && <div className="success-message">{successMessage}</div>}
 
           <form onSubmit={handleCreateDamaged} className="add-form">
             <div className="form-group">
-              <label htmlFor="damaged-type">Druh koule (Bath Bomb Type) *</label>
+              <label htmlFor="damaged-type">Druh koule *</label>
               <input
                 type="text"
                 id="damaged-type"
                 value={newDamagedBathBombType}
                 onChange={(e) => setNewDamagedBathBombType(e.target.value)}
-                placeholder="e.g. Kokobana"
+                placeholder="např. Kokobana"
                 required
               />
             </div>
 
             <div className="form-group">
-              <label htmlFor="damaged-weight">Gramáž (Weight in grams) *</label>
+              <label htmlFor="damaged-weight">Gramáž (g) *</label>
               <input
                 type="number"
                 id="damaged-weight"
                 value={newDamagedWeight}
                 onChange={(e) => setNewDamagedWeight(e.target.value)}
-                placeholder="Enter weight in grams"
+                placeholder="Zadejte gramáž"
                 min="1"
                 required
               />
             </div>
 
             <div className="form-group">
-              <label htmlFor="damaged-price">Price (Kč) *</label>
+              <label htmlFor="damaged-price">Cena (Kč) *</label>
               <input
                 type="number"
                 id="damaged-price"
                 value={newDamagedPrice}
                 onChange={(e) => setNewDamagedPrice(e.target.value)}
-                placeholder="Enter price"
+                placeholder="Zadejte cenu"
                 min="0"
                 step="0.01"
                 required
@@ -898,7 +897,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
             </div>
 
             <div className="form-group">
-              <label>Stav poškození (Damage Level) *</label>
+              <label>Stav poškození *</label>
               <div className="radio-group">
                 <label className="radio-label">
                   <input
@@ -931,46 +930,46 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
             </div>
 
             <div className="form-group">
-              <label htmlFor="damaged-stock">Stock Count *</label>
+              <label htmlFor="damaged-stock">Počet kusů *</label>
               <input
                 type="number"
                 id="damaged-stock"
                 value={newDamagedStockCount}
                 onChange={(e) => setNewDamagedStockCount(e.target.value)}
-                placeholder="Enter stock count"
+                placeholder="Zadejte počet"
                 min="0"
                 required
               />
             </div>
 
             <div className="form-group">
-              <label htmlFor="damaged-image">Image URL</label>
+              <label htmlFor="damaged-image">URL obrázku</label>
               <input
                 type="text"
                 id="damaged-image"
                 value={newDamagedImageUrl}
                 onChange={(e) => setNewDamagedImageUrl(e.target.value)}
-                placeholder="Enter image URL (optional)"
+                placeholder="URL obrázku (volitelné)"
               />
             </div>
 
             <div className="form-group">
-              <label htmlFor="damaged-description">Description</label>
+              <label htmlFor="damaged-description">Popis</label>
               <textarea
                 id="damaged-description"
                 value={newDamagedDescription}
                 onChange={(e) => setNewDamagedDescription(e.target.value)}
-                placeholder="Enter description (optional)"
+                placeholder="Popis (volitelné)"
                 rows={3}
               />
             </div>
 
             <div className="form-actions">
               <button type="submit" className="submit-button">
-                💔 Create Damaged Product
+                💔 Vytvořit poškozený produkt
               </button>
               <button type="button" onClick={resetDamagedForm} className="reset-button">
-                Reset
+                Resetovat
               </button>
             </div>
           </form>
