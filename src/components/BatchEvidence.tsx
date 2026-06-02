@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { BatchEvidenceRecord, MaterialConsumption } from '../types/warehouse'
-import { getBatchEvidence, getRawMaterials } from '../utils/warehouseStorage'
+import { getBatchEvidence, getRawMaterials, updateProductionRecord } from '../utils/warehouseApi'
 import './Warehouse.css'
 
 interface BackendBatch {
@@ -20,22 +20,27 @@ interface BatchEvidenceProps {
 const BatchEvidence = ({ apiBaseUrl }: BatchEvidenceProps) => {
   const [records, setRecords] = useState<BatchEvidenceRecord[]>([])
   const [backendBatches, setBackendBatches] = useState<BackendBatch[]>([])
+  const [materialNames, setMaterialNames] = useState<string[]>([])
   const [expandedRecord, setExpandedRecord] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [editingNotes, setEditingNotes] = useState<string | null>(null)
   const [notesValue, setNotesValue] = useState('')
   const [editingMaterials, setEditingMaterials] = useState<string | null>(null)
-  const [editMaterials, setEditMaterials] = useState<{ materialName: string; quantity: string; unit: string; batchNumber: string }[]>([])
+  const [editMaterials, setEditMaterials] = useState<{ materialName: string; quantity: string; batchNumber: string }[]>([])
 
   useEffect(() => {
     refreshData()
     fetchBackendBatches()
   }, [])
 
-  const refreshData = () => {
-    setRecords(getBatchEvidence().sort((a, b) =>
-      new Date(b.dateProduced).getTime() - new Date(a.dateProduced).getTime()
-    ))
+  const refreshData = async () => {
+    try {
+      const [evidence, materials] = await Promise.all([getBatchEvidence(), getRawMaterials()])
+      setRecords(evidence)
+      setMaterialNames(materials.map(m => m.name))
+    } catch {
+      // ignore
+    }
   }
 
   const fetchBackendBatches = async () => {
@@ -70,19 +75,12 @@ const BatchEvidence = ({ apiBaseUrl }: BatchEvidenceProps) => {
     }
   }
 
-  // Merge: local evidence records + backend batches that don't have local evidence
-  const getMergedRecords = () => {
-    const localBatchNumbers = new Set(records.map(r => r.batchNumber))
-    
-    const backendOnly = backendBatches.filter(bb => !localBatchNumbers.has(bb.batchId))
-    
-    return { localRecords: records, backendOnly }
-  }
-
-  const { localRecords, backendOnly } = getMergedRecords()
+  // Merge: production/evidence records + backend bomb batches that have no matching evidence record
+  const recordBatchNumbers = new Set(records.map(r => r.batchNumber))
+  const backendOnly = backendBatches.filter(bb => !recordBatchNumbers.has(bb.batchId))
 
   const allDisplayItems = [
-    ...localRecords.map(r => ({ type: 'local' as const, id: r.id, batchNumber: r.batchNumber, recipeName: r.recipeName, dateProduced: r.dateProduced, data: r })),
+    ...records.map(r => ({ type: 'record' as const, id: r.id, batchNumber: r.batchNumber, recipeName: r.recipeName, dateProduced: r.dateProduced, data: r })),
     ...backendOnly.map(bb => ({ type: 'backend' as const, id: bb.id, batchNumber: bb.batchId, recipeName: bb.bombName, dateProduced: '', data: bb })),
   ]
 
@@ -91,77 +89,34 @@ const BatchEvidence = ({ apiBaseUrl }: BatchEvidenceProps) => {
     item.recipeName.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  // Save notes for a local evidence record
-  const handleSaveNotes = (recordId: string) => {
-    const evidence = getBatchEvidence()
-    const rec = evidence.find(r => r.id === recordId)
-    if (rec) {
-      rec.notes = notesValue || undefined
-      localStorage.setItem('bubblena_batch_evidence', JSON.stringify(evidence))
+  const handleSaveNotes = async (recordId: string) => {
+    try {
+      await updateProductionRecord(recordId, { notes: notesValue || undefined })
       refreshData()
+    } catch {
+      // ignore
     }
     setEditingNotes(null)
   }
 
-  // Create a local evidence record for a backend-only batch
-  const handleCreateEvidence = (bb: BackendBatch) => {
-    const materials = getRawMaterials()
+  const handleSaveMaterials = async (recordId: string) => {
     const materialsUsed: MaterialConsumption[] = editMaterials
       .filter(em => em.materialName.trim())
-      .map(em => {
-        const mat = materials.find(m => m.name === em.materialName)
-        return {
-          materialId: mat?.id || '',
-          materialName: em.materialName,
-          quantity: Number(em.quantity) || 0,
-          unit: em.unit || 'g',
-          sourceBatches: em.batchNumber ? [{ batchId: '', batchNumber: em.batchNumber, quantityUsed: Number(em.quantity) || 0 }] : [],
-        }
-      })
+      .map(em => ({
+        materialId: '',
+        materialName: em.materialName,
+        quantity: Number(em.quantity) || 0,
+        sourceBatches: em.batchNumber ? [{ batchId: '', batchNumber: em.batchNumber, quantityUsed: Number(em.quantity) || 0 }] : [],
+      }))
 
-    const newRecord: BatchEvidenceRecord = {
-      id: Date.now().toString(36) + Math.random().toString(36).substr(2, 9),
-      productionRecordId: '',
-      batchNumber: bb.batchId,
-      recipeName: bb.bombName,
-      dateProduced: new Date().toISOString(),
-      materialsUsed,
-      notes: notesValue || undefined,
+    try {
+      await updateProductionRecord(recordId, { materialsUsed })
+      refreshData()
+    } catch {
+      // ignore
     }
-
-    const evidence = getBatchEvidence()
-    evidence.push(newRecord)
-    localStorage.setItem('bubblena_batch_evidence', JSON.stringify(evidence))
-    setEditingMaterials(null)
-    setNotesValue('')
-    setEditMaterials([])
-    refreshData()
-  }
-
-  // Edit materials for an existing local record
-  const handleSaveMaterials = (recordId: string) => {
-    const materials = getRawMaterials()
-    const evidence = getBatchEvidence()
-    const rec = evidence.find(r => r.id === recordId)
-    if (!rec) return
-
-    rec.materialsUsed = editMaterials
-      .filter(em => em.materialName.trim())
-      .map(em => {
-        const mat = materials.find(m => m.name === em.materialName)
-        return {
-          materialId: mat?.id || '',
-          materialName: em.materialName,
-          quantity: Number(em.quantity) || 0,
-          unit: em.unit || 'g',
-          sourceBatches: em.batchNumber ? [{ batchId: '', batchNumber: em.batchNumber, quantityUsed: Number(em.quantity) || 0 }] : [],
-        }
-      })
-
-    localStorage.setItem('bubblena_batch_evidence', JSON.stringify(evidence))
     setEditingMaterials(null)
     setEditMaterials([])
-    refreshData()
   }
 
   const startEditMaterials = (recordId: string, existing: MaterialConsumption[]) => {
@@ -171,15 +126,14 @@ const BatchEvidence = ({ apiBaseUrl }: BatchEvidenceProps) => {
         ? existing.map(mu => ({
             materialName: mu.materialName,
             quantity: String(mu.quantity),
-            unit: mu.unit,
             batchNumber: mu.sourceBatches.map(sb => sb.batchNumber).join(', '),
           }))
-        : [{ materialName: '', quantity: '', unit: 'g', batchNumber: '' }]
+        : [{ materialName: '', quantity: '', batchNumber: '' }]
     )
   }
 
   const addEditMaterialRow = () => {
-    setEditMaterials([...editMaterials, { materialName: '', quantity: '', unit: 'g', batchNumber: '' }])
+    setEditMaterials([...editMaterials, { materialName: '', quantity: '', batchNumber: '' }])
   }
 
   const updateEditMaterial = (index: number, field: string, value: string) => {
@@ -198,7 +152,7 @@ const BatchEvidence = ({ apiBaseUrl }: BatchEvidenceProps) => {
       r.batchNumber,
       r.recipeName,
       new Date(r.dateProduced).toLocaleDateString('cs-CZ'),
-      r.materialsUsed.map(mu => `${mu.materialName} (${mu.quantity} ${mu.unit})`).join('; '),
+      r.materialsUsed.map(mu => `${mu.materialName} (${mu.quantity} g)`).join('; '),
       r.materialsUsed.map(mu =>
         mu.sourceBatches.map(sb => `${mu.materialName}: ${sb.batchNumber}`).join('; ')
       ).join('; '),
@@ -209,7 +163,7 @@ const BatchEvidence = ({ apiBaseUrl }: BatchEvidenceProps) => {
       ...rows.map(row => row.map(cell => `"${cell}"`).join(',')),
     ].join('\n')
 
-    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
     link.download = `evidence_sarzi_${new Date().toISOString().split('T')[0]}.csv`
@@ -251,9 +205,9 @@ const BatchEvidence = ({ apiBaseUrl }: BatchEvidenceProps) => {
                 <td><strong>${r.batchNumber}</strong></td>
                 <td>${r.recipeName}</td>
                 <td>${new Date(r.dateProduced).toLocaleDateString('cs-CZ')}</td>
-                <td>${r.materialsUsed.map(mu => `${mu.materialName}: ${mu.quantity} ${mu.unit}`).join('<br>')}</td>
+                <td>${r.materialsUsed.map(mu => `${mu.materialName}: ${mu.quantity} g`).join('<br>')}</td>
                 <td>${r.materialsUsed.map(mu =>
-                  mu.sourceBatches.map(sb => `${mu.materialName}: ${sb.batchNumber} (${sb.quantityUsed} ${mu.unit})`).join('<br>')
+                  mu.sourceBatches.map(sb => `${mu.materialName}: ${sb.batchNumber} (${sb.quantityUsed} g)`).join('<br>')
                 ).join('<br>')}</td>
               </tr>
             `).join('')}
@@ -269,8 +223,6 @@ const BatchEvidence = ({ apiBaseUrl }: BatchEvidenceProps) => {
       printWindow.print()
     }
   }
-
-  const availableMaterials = getRawMaterials()
 
   return (
     <div className="warehouse-section">
@@ -308,18 +260,22 @@ const BatchEvidence = ({ apiBaseUrl }: BatchEvidenceProps) => {
                       {new Date(item.dateProduced).toLocaleDateString('cs-CZ')}
                     </span>
                   )}
-                  {item.type === 'local' && item.data && (item.data as BatchEvidenceRecord).materialsUsed.length === 0 && (
+                  {item.type === 'record' && (item.data as BatchEvidenceRecord).materialsUsed.length === 0 && (
                     <span className="stock-badge" style={{ background: '#fff3cd', color: '#856404' }}>Bez surovin</span>
+                  )}
+                  {item.type === 'backend' && (
+                    <span className="stock-badge" style={{ background: '#fff3cd', color: '#856404' }}>Ručně přidáno</span>
                   )}
                 </div>
               </div>
 
-              {expandedRecord === item.id && item.type === 'local' && (
+              {expandedRecord === item.id && item.type === 'record' && (
                 <div className="batches-list">
                   {(() => {
                     const record = item.data as BatchEvidenceRecord
                     return (
                       <>
+                        {record.lotNumber && <p className="material-meta">📦 LOT: {record.lotNumber}</p>}
                         {record.materialsUsed.length > 0 ? (
                           <>
                             <h5>Použité suroviny a jejich šarže</h5>
@@ -340,17 +296,17 @@ const BatchEvidence = ({ apiBaseUrl }: BatchEvidenceProps) => {
                                         {j === 0 && (
                                           <>
                                             <td rowSpan={mu.sourceBatches.length}>{mu.materialName}</td>
-                                            <td rowSpan={mu.sourceBatches.length}>{mu.quantity} {mu.unit}</td>
+                                            <td rowSpan={mu.sourceBatches.length}>{mu.quantity} g</td>
                                           </>
                                         )}
                                         <td>{sb.batchNumber}</td>
-                                        <td>{sb.quantityUsed} {mu.unit}</td>
+                                        <td>{sb.quantityUsed} g</td>
                                       </tr>
                                     ))
                                   ) : (
                                     <tr key={`${i}-0`}>
                                       <td>{mu.materialName}</td>
-                                      <td>{mu.quantity} {mu.unit}</td>
+                                      <td>{mu.quantity} g</td>
                                       <td colSpan={2}>—</td>
                                     </tr>
                                   )
@@ -393,11 +349,11 @@ const BatchEvidence = ({ apiBaseUrl }: BatchEvidenceProps) => {
                               <div key={idx} className="ingredient-row">
                                 <select value={em.materialName} onChange={e => updateEditMaterial(idx, 'materialName', e.target.value)}>
                                   <option value="">Vyberte surovinu...</option>
-                                  {availableMaterials.map(m => (
-                                    <option key={m.id} value={m.name}>{m.name}</option>
+                                  {materialNames.map(name => (
+                                    <option key={name} value={name}>{name}</option>
                                   ))}
                                 </select>
-                                <input type="number" placeholder="Množství" value={em.quantity} onChange={e => updateEditMaterial(idx, 'quantity', e.target.value)} style={{ width: '80px' }} />
+                                <input type="number" placeholder="Množství (g)" value={em.quantity} onChange={e => updateEditMaterial(idx, 'quantity', e.target.value)} style={{ width: '90px' }} />
                                 <input placeholder="Č. šarže" value={em.batchNumber} onChange={e => updateEditMaterial(idx, 'batchNumber', e.target.value)} style={{ width: '100px' }} />
                                 <button className="btn-sm btn-danger" onClick={() => removeEditMaterial(idx)}>✕</button>
                               </div>
@@ -425,45 +381,7 @@ const BatchEvidence = ({ apiBaseUrl }: BatchEvidenceProps) => {
                         <p className="material-meta">
                           Velikosti: {bb.variants.map(v => `${v.weight}g × ${v.stockCount} ks`).join(', ')}
                         </p>
-                        <p className="empty-state">Tento batch byl přidán ručně — evidence surovin chybí.</p>
-
-                        <div className="form-actions" style={{ marginTop: '0.5rem' }}>
-                          <button className="btn-sm btn-primary" onClick={() => {
-                            setEditingMaterials(bb.id)
-                            setEditMaterials([{ materialName: '', quantity: '', unit: 'g', batchNumber: '' }])
-                            setNotesValue('')
-                          }}>
-                            ✏️ Doplnit evidenci surovin
-                          </button>
-                        </div>
-
-                        {editingMaterials === bb.id && (
-                          <div className="form-card" style={{ marginTop: '0.5rem' }}>
-                            <h5>Doplnit suroviny pro {bb.batchId}</h5>
-                            {editMaterials.map((em, idx) => (
-                              <div key={idx} className="ingredient-row">
-                                <select value={em.materialName} onChange={e => updateEditMaterial(idx, 'materialName', e.target.value)}>
-                                  <option value="">Vyberte surovinu...</option>
-                                  {availableMaterials.map(m => (
-                                    <option key={m.id} value={m.name}>{m.name}</option>
-                                  ))}
-                                </select>
-                                <input type="number" placeholder="Množství" value={em.quantity} onChange={e => updateEditMaterial(idx, 'quantity', e.target.value)} style={{ width: '80px' }} />
-                                <input placeholder="Č. šarže" value={em.batchNumber} onChange={e => updateEditMaterial(idx, 'batchNumber', e.target.value)} style={{ width: '100px' }} />
-                                <button className="btn-sm btn-danger" onClick={() => removeEditMaterial(idx)}>✕</button>
-                              </div>
-                            ))}
-                            <div className="form-group" style={{ marginTop: '0.5rem' }}>
-                              <label>Poznámka</label>
-                              <textarea value={notesValue} onChange={e => setNotesValue(e.target.value)} rows={2} />
-                            </div>
-                            <div className="form-actions">
-                              <button className="btn-sm btn-secondary" onClick={addEditMaterialRow}>+ Surovina</button>
-                              <button className="btn-sm btn-primary" onClick={() => handleCreateEvidence(bb)}>Uložit evidenci</button>
-                              <button className="btn-sm btn-secondary" onClick={() => setEditingMaterials(null)}>Zrušit</button>
-                            </div>
-                          </div>
-                        )}
+                        <p className="empty-state">Tento batch byl přidán ručně přes Sklad koulí — bez evidence surovin (nevznikl výrobou receptu).</p>
                       </>
                     )
                   })()}

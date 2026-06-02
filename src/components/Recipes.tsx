@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react'
-import type { Recipe, RecipeIngredient, RawMaterial } from '../types/warehouse'
-import { getRecipes, addRecipe, updateRecipe, deleteRecipe, getRawMaterials, seedRecipes } from '../utils/warehouseStorage'
+import type { Recipe, RecipeIngredient, RawMaterial, FinishedProduct } from '../types/warehouse'
+import { getRecipes, addRecipe, updateRecipe, deleteRecipe, getRawMaterials, getFinishedProducts } from '../utils/warehouseApi'
 import './Warehouse.css'
 
 const Recipes = () => {
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [materials, setMaterials] = useState<RawMaterial[]>([])
+  const [products, setProducts] = useState<FinishedProduct[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [showAddRecipe, setShowAddRecipe] = useState(false)
   const [editingRecipe, setEditingRecipe] = useState<string | null>(null)
   const [expandedRecipe, setExpandedRecipe] = useState<string | null>(null)
@@ -14,27 +17,38 @@ const Recipes = () => {
   const [recipeName, setRecipeName] = useState('')
   const [recipeAcronym, setRecipeAcronym] = useState('')
   const [recipeNotes, setRecipeNotes] = useState('')
+  const [recipeProductId, setRecipeProductId] = useState('')
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>([])
 
   useEffect(() => {
-    seedRecipes()
     refreshData()
   }, [])
 
-  const refreshData = () => {
-    setRecipes(getRecipes())
-    setMaterials(getRawMaterials())
+  const refreshData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const [recs, mats, prods] = await Promise.all([getRecipes(), getRawMaterials(), getFinishedProducts()])
+      setRecipes(recs)
+      setMaterials(mats)
+      setProducts(prods)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Chyba načítání receptů')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const resetForm = () => {
     setRecipeName('')
     setRecipeAcronym('')
     setRecipeNotes('')
+    setRecipeProductId('')
     setIngredients([])
   }
 
   const addIngredient = () => {
-    setIngredients([...ingredients, { materialId: '', materialName: '', quantity: 0, unit: 'g' }])
+    setIngredients([...ingredients, { materialId: '', materialName: '', quantity: 0 }])
   }
 
   const updateIngredient = (index: number, field: keyof RecipeIngredient, value: string | number) => {
@@ -45,7 +59,6 @@ const Recipes = () => {
         ...updated[index],
         materialId: value as string,
         materialName: material?.name || '',
-        unit: material?.unit || 'g',
       }
     } else {
       updated[index] = { ...updated[index], [field]: value }
@@ -57,17 +70,25 @@ const Recipes = () => {
     setIngredients(ingredients.filter((_, i) => i !== index))
   }
 
-  const handleAddRecipe = (e: React.FormEvent) => {
+  const selectedProduct = products.find(p => p.id === recipeProductId)
+
+  const handleAddRecipe = async (e: React.FormEvent) => {
     e.preventDefault()
-    addRecipe({
-      name: recipeName,
-      acronym: recipeAcronym,
-      ingredients,
-      notes: recipeNotes || undefined,
-    })
-    resetForm()
-    setShowAddRecipe(false)
-    refreshData()
+    try {
+      await addRecipe({
+        name: recipeName,
+        acronym: recipeAcronym,
+        ingredients,
+        productType: selectedProduct?.type ?? null,
+        productId: selectedProduct?.id,
+        notes: recipeNotes || undefined,
+      })
+      resetForm()
+      setShowAddRecipe(false)
+      refreshData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Chyba při ukládání receptu')
+    }
   }
 
   const startEditRecipe = (recipe: Recipe) => {
@@ -75,27 +96,37 @@ const Recipes = () => {
     setRecipeName(recipe.name)
     setRecipeAcronym(recipe.acronym)
     setRecipeNotes(recipe.notes || '')
+    setRecipeProductId(recipe.productId || '')
     setIngredients([...recipe.ingredients])
   }
 
-  const handleUpdateRecipe = (e: React.FormEvent) => {
+  const handleUpdateRecipe = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!editingRecipe) return
-    updateRecipe(editingRecipe, {
-      name: recipeName,
-      acronym: recipeAcronym,
-      ingredients,
-      notes: recipeNotes || undefined,
-    })
-    resetForm()
-    setEditingRecipe(null)
-    refreshData()
+    try {
+      await updateRecipe(editingRecipe, {
+        name: recipeName,
+        acronym: recipeAcronym,
+        ingredients,
+        productType: selectedProduct?.type ?? null,
+        productId: selectedProduct?.id,
+        notes: recipeNotes || undefined,
+      })
+      resetForm()
+      setEditingRecipe(null)
+      refreshData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Chyba při úpravě receptu')
+    }
   }
 
-  const handleDeleteRecipe = (id: string) => {
-    if (confirm('Opravdu smazat tento recept?')) {
-      deleteRecipe(id)
+  const handleDeleteRecipe = async (id: string) => {
+    if (!confirm('Opravdu smazat tento recept?')) return
+    try {
+      await deleteRecipe(id)
       refreshData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Chyba při mazání receptu')
     }
   }
 
@@ -114,9 +145,26 @@ const Recipes = () => {
           </div>
         </div>
 
+        <div className="form-group">
+          <label>Vyráběný produkt (sklad hotových výrobků)</label>
+          <select value={recipeProductId} onChange={e => setRecipeProductId(e.target.value)}>
+            <option value="">— nenavázáno (jen odpis surovin) —</option>
+            <optgroup label="Koule">
+              {products.filter(p => p.type === 'bomb').map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Steamery">
+              {products.filter(p => p.type === 'steamer').map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </optgroup>
+          </select>
+        </div>
+
         <div className="ingredients-section">
           <div className="ingredients-header">
-            <h4>Suroviny na 1 batch</h4>
+            <h4>Suroviny na 1 batch (v gramech)</h4>
             <button type="button" className="btn-sm btn-primary" onClick={addIngredient}>+ Přidat surovinu</button>
           </div>
 
@@ -135,12 +183,12 @@ const Recipes = () => {
                 >
                   <option value="">Vyberte...</option>
                   {materials.map(m => (
-                    <option key={m.id} value={m.id}>{m.name} ({m.unit})</option>
+                    <option key={m.id} value={m.id}>{m.name}</option>
                   ))}
                 </select>
               </div>
               <div className="form-group">
-                <label>Množství ({ing.unit})</label>
+                <label>Množství (g)</label>
                 <input
                   type="number"
                   step="0.01"
@@ -182,7 +230,9 @@ const Recipes = () => {
         </button>
       </div>
 
-      {materials.length === 0 && (
+      {error && <div className="error-message">{error}</div>}
+
+      {!loading && materials.length === 0 && (
         <div className="alerts-section">
           <p>⚠️ Nejprve přidejte suroviny do skladu, abyste mohli vytvořit recept.</p>
         </div>
@@ -192,7 +242,9 @@ const Recipes = () => {
       {editingRecipe && renderForm(handleUpdateRecipe, true)}
 
       <div className="recipes-list">
-        {recipes.length === 0 ? (
+        {loading ? (
+          <p className="empty-state">Načítání…</p>
+        ) : recipes.length === 0 ? (
           <p className="empty-state">Zatím nemáte žádné recepty.</p>
         ) : (
           recipes.map(recipe => (
@@ -202,6 +254,14 @@ const Recipes = () => {
                   <h4>{recipe.name}</h4>
                   <span className="stock-badge">{recipe.acronym}</span>
                   <span className="stock-badge">{recipe.ingredients.length} surovin</span>
+                  {recipe.productId ? (
+                    <span className="stock-badge" title="Navázaný produkt">
+                      🎯 {products.find(p => p.id === recipe.productId)?.name
+                        || (recipe.productType === 'steamer' ? 'Steamer' : 'Koule')}
+                    </span>
+                  ) : (
+                    <span className="stock-badge" style={{ background: '#fff3cd', color: '#856404' }}>Bez produktu</span>
+                  )}
                 </div>
                 <div className="material-actions">
                   <button className="btn-sm btn-secondary" onClick={(e) => { e.stopPropagation(); startEditRecipe(recipe) }}>
@@ -233,9 +293,9 @@ const Recipes = () => {
                         return (
                           <tr key={i} className={!hasEnough ? 'low-stock-row' : ''}>
                             <td>{ing.materialName}</td>
-                            <td>{ing.quantity} {ing.unit}</td>
+                            <td>{ing.quantity} g</td>
                             <td className={!hasEnough ? 'text-danger' : 'text-success'}>
-                              {material ? `${material.currentStock} ${material.unit}` : 'N/A'}
+                              {material ? `${material.currentStock} g` : 'N/A'}
                             </td>
                           </tr>
                         )

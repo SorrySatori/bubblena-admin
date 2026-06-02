@@ -1,19 +1,17 @@
 import { useState, useEffect } from 'react'
 import type { Recipe, ProductionRecord, ProductionBatchSize } from '../types/warehouse'
-import { getRecipes, getProductionRecords, produceBatch } from '../utils/warehouseStorage'
+import { getRecipes, getProductionRecords, produceBatch } from '../utils/warehouseApi'
 import './Warehouse.css'
 
-interface ProductionListProps {
-  apiBaseUrl: string
-}
-
-const ProductionList = ({ apiBaseUrl }: ProductionListProps) => {
+const ProductionList = () => {
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [records, setRecords] = useState<ProductionRecord[]>([])
+  const [loading, setLoading] = useState(true)
   const [showAddProduction, setShowAddProduction] = useState(false)
   const [expandedRecord, setExpandedRecord] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   // Form
   const [selectedRecipe, setSelectedRecipe] = useState('')
@@ -24,11 +22,17 @@ const ProductionList = ({ apiBaseUrl }: ProductionListProps) => {
     refreshData()
   }, [])
 
-  const refreshData = () => {
-    setRecipes(getRecipes())
-    setRecords(getProductionRecords().sort((a, b) =>
-      new Date(b.dateProduced).getTime() - new Date(a.dateProduced).getTime()
-    ))
+  const refreshData = async () => {
+    try {
+      setLoading(true)
+      const [recs, prod] = await Promise.all([getRecipes(), getProductionRecords()])
+      setRecipes(recs)
+      setRecords(prod)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Chyba načítání výroby')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const addSize = () => {
@@ -45,44 +49,6 @@ const ProductionList = ({ apiBaseUrl }: ProductionListProps) => {
     setSizes(sizes.filter((_, i) => i !== index))
   }
 
-  const syncToBackendStock = async (record: ProductionRecord) => {
-    try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        'x-api-key': import.meta.env.VITE_API_KEY || '',
-      }
-
-      // Fetch bombs from backend to find matching product
-      const bombsRes = await fetch(`${apiBaseUrl}/bombs`, { headers })
-      if (!bombsRes.ok) return null
-
-      const bombs: { _id: string; name: string; acronym: string }[] = await bombsRes.json()
-      const matchingBomb = bombs.find(
-        b => b.name.toLowerCase() === record.recipeName.toLowerCase()
-          || b.acronym.toLowerCase() === record.recipeAcronym.toLowerCase()
-      )
-
-      if (!matchingBomb) return null
-
-      // Add batch to bomb stock with production batch number
-      const variants = record.sizes.map(s => ({
-        weight: s.weight,
-        stockCount: s.quantity,
-      }))
-
-      const res = await fetch(`${apiBaseUrl}/bombs/${matchingBomb._id}/add-batch`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ variants, productionBatchNumber: record.batchNumber }),
-      })
-
-      if (res.ok) return await res.json()
-      return null
-    } catch {
-      return null
-    }
-  }
-
   const handleProduce = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -94,21 +60,24 @@ const ProductionList = ({ apiBaseUrl }: ProductionListProps) => {
       return
     }
 
-    const result = produceBatch(selectedRecipe, validSizes, productionDate)
-    if (result.success && result.record) {
-      // Try to sync to backend stock (non-blocking)
-      const synced = await syncToBackendStock(result.record)
-      const stockMsg = synced
-        ? ' Zároveň přidáno do skladu koulí.'
-        : ' (Sklad koulí nebyl aktualizován - produkt nenalezen v backendu.)'
-
-      setSuccess(`Batch "${result.record.batchNumber}" úspěšně vyrobena! Suroviny odepsány ze skladu.${stockMsg}`)
-      setShowAddProduction(false)
-      setSelectedRecipe('')
-      setSizes([{ weight: 0, quantity: 0 }])
-      refreshData()
-    } else {
-      setError(result.error || 'Neznámá chyba')
+    setSubmitting(true)
+    try {
+      const result = await produceBatch(selectedRecipe, validSizes, productionDate)
+      if (result.success && result.record) {
+        const stockMsg = result.productType
+          ? ` Zároveň přidáno do skladu (${result.productType === 'bomb' ? 'koule' : 'steamery'}).`
+          : ' (Sklad hotových výrobků nebyl aktualizován — produkt nenalezen v backendu.)'
+        const lotMsg = result.record.lotNumber ? ` [LOT ${result.record.lotNumber}]` : ''
+        setSuccess(`Batch "${result.record.batchNumber}"${lotMsg} úspěšně vyrobena! Suroviny odepsány (FIFO).${stockMsg}`)
+        setShowAddProduction(false)
+        setSelectedRecipe('')
+        setSizes([{ weight: 0, quantity: 0 }])
+        refreshData()
+      } else {
+        setError(result.error || 'Neznámá chyba')
+      }
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -190,14 +159,16 @@ const ProductionList = ({ apiBaseUrl }: ProductionListProps) => {
                   <h5>Spotřeba surovin (1 batch):</h5>
                   <ul>
                     {recipes.find(r => r.id === selectedRecipe)?.ingredients.map((ing, i) => (
-                      <li key={i}>{ing.materialName}: {ing.quantity} {ing.unit}</li>
+                      <li key={i}>{ing.materialName}: {ing.quantity} g</li>
                     ))}
                   </ul>
                 </div>
               )}
 
               <div className="form-actions">
-                <button type="submit" className="btn-primary">Vyrobit & odepsat suroviny</button>
+                <button type="submit" className="btn-primary" disabled={submitting}>
+                  {submitting ? 'Vyrábím…' : 'Vyrobit & odepsat suroviny'}
+                </button>
                 <button type="button" className="btn-secondary" onClick={() => setShowAddProduction(false)}>Zrušit</button>
               </div>
             </form>
@@ -206,7 +177,9 @@ const ProductionList = ({ apiBaseUrl }: ProductionListProps) => {
       )}
 
       <div className="materials-list">
-        {records.length === 0 ? (
+        {loading ? (
+          <p className="empty-state">Načítání…</p>
+        ) : records.length === 0 ? (
           <p className="empty-state">Zatím žádná výroba.</p>
         ) : (
           records.map(record => (
@@ -215,6 +188,7 @@ const ProductionList = ({ apiBaseUrl }: ProductionListProps) => {
                 <div className="material-info">
                   <h4>{record.batchNumber}</h4>
                   <span className="stock-badge">{record.recipeName}</span>
+                  {record.lotNumber && <span className="stock-badge">LOT {record.lotNumber}</span>}
                   <span className="stock-badge">
                     {new Date(record.dateProduced).toLocaleDateString('cs-CZ')}
                   </span>
@@ -234,17 +208,17 @@ const ProductionList = ({ apiBaseUrl }: ProductionListProps) => {
                       <tr>
                         <th>Surovina</th>
                         <th>Množství</th>
-                        <th>Ze šarží</th>
+                        <th>Ze šarží (FIFO)</th>
                       </tr>
                     </thead>
                     <tbody>
                       {record.materialsUsed.map((mu, i) => (
                         <tr key={i}>
                           <td>{mu.materialName}</td>
-                          <td>{mu.quantity} {mu.unit}</td>
+                          <td>{mu.quantity} g</td>
                           <td>
                             {mu.sourceBatches.map(sb =>
-                              `${sb.batchNumber} (${sb.quantityUsed} ${mu.unit})`
+                              `${sb.batchNumber} (${sb.quantityUsed} g)`
                             ).join(', ')}
                           </td>
                         </tr>

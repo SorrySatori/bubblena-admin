@@ -342,7 +342,7 @@ function App() {
 
         {activeTab === 'raw-materials' && <RawMaterials />}
         {activeTab === 'recipes' && <Recipes />}
-        {activeTab === 'production' && <ProductionList apiBaseUrl={API_BASE_URL} />}
+        {activeTab === 'production' && <ProductionList />}
         {activeTab === 'batch-evidence' && <BatchEvidence apiBaseUrl={API_BASE_URL} />}
       </div>
     </div>

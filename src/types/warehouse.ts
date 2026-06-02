@@ -1,10 +1,11 @@
-// Raw Material in the warehouse
+// All raw-material quantities are in GRAMS (no per-item unit field).
+
+// Supplier intake batch (šarže) of a raw material
 export interface RawMaterialBatch {
   id: string
   batchNumber: string // supplier batch number (šarže)
-  quantity: number // current quantity in stock
-  initialQuantity: number // original quantity when stocked
-  unit: string // kg, g, ml, l, pcs
+  quantity: number // current remaining quantity in grams
+  initialQuantity: number // original quantity when stocked, grams
   dateStocked: string // ISO date
   consumed: boolean // fully used up
   dateConsumed?: string // when it was fully used
@@ -13,23 +14,21 @@ export interface RawMaterialBatch {
 export interface RawMaterial {
   id: string
   name: string
-  unit: string // default unit (kg, g, ml, l, pcs)
-  currentStock: number // total across all batches
-  lowStockThreshold: number // alert when below this
+  currentStock: number // total grams across all non-consumed batches
+  lowStockThreshold: number // alert when below this (grams)
   supplierName?: string
   purchaseLink?: string
   notes?: string
   batches: RawMaterialBatch[]
-  createdAt: string
-  updatedAt: string
+  createdAt?: string
+  updatedAt?: string
 }
 
 // Recipe
 export interface RecipeIngredient {
   materialId: string
   materialName: string
-  quantity: number // amount needed per batch
-  unit: string
+  quantity: number // grams needed per batch
 }
 
 export interface Recipe {
@@ -37,15 +36,37 @@ export interface Recipe {
   name: string // e.g. "Kokobana"
   acronym: string // e.g. "KB"
   ingredients: RecipeIngredient[]
+  productType?: 'bomb' | 'steamer' | null // bound finished product collection
+  productId?: string // Bomb/Steamer id this recipe produces
   notes?: string
-  createdAt: string
-  updatedAt: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+// A finished product (Bomb or Steamer) a recipe can be bound to
+export interface FinishedProduct {
+  id: string
+  name: string
+  type: 'bomb' | 'steamer'
 }
 
 // Production
 export interface ProductionBatchSize {
-  weight: number // grams
+  weight: number // grams per piece
   quantity: number // how many of this size
+}
+
+export interface SourceBatch {
+  batchId: string
+  batchNumber: string
+  quantityUsed: number // grams
+}
+
+export interface MaterialConsumption {
+  materialId: string
+  materialName: string
+  quantity: number // total grams
+  sourceBatches: SourceBatch[] // which material batches were used (FIFO)
 }
 
 export interface ProductionRecord {
@@ -53,35 +74,17 @@ export interface ProductionRecord {
   recipeId: string
   recipeName: string
   recipeAcronym: string
-  batchNumber: string // e.g. "kokobana001"
+  batchNumber: string // assigned product batchId, e.g. "KB-001"
+  lotNumber?: string // e.g. "BB-KB-001"
+  productType?: 'bomb' | 'steamer' | null
+  productId?: string
   sizes: ProductionBatchSize[]
   dateProduced: string // ISO date
   materialsUsed: MaterialConsumption[]
-  createdAt: string
-}
-
-export interface MaterialConsumption {
-  materialId: string
-  materialName: string
-  quantity: number
-  unit: string
-  sourceBatches: SourceBatch[] // which material batches were used (FIFO)
-}
-
-export interface SourceBatch {
-  batchId: string
-  batchNumber: string
-  quantityUsed: number
-}
-
-// Batch Evidence (šarže evidence)
-export interface BatchEvidenceRecord {
-  id: string
-  productionRecordId: string
-  batchNumber: string // same as production batch number
-  recipeName: string
-  dateProduced: string
-  expiryDate?: string
-  materialsUsed: MaterialConsumption[]
   notes?: string
+  expiryDate?: string
+  createdAt?: string
 }
+
+// Batch Evidence reuses the production record shape (one collection in the DB)
+export type BatchEvidenceRecord = ProductionRecord
