@@ -2,20 +2,22 @@ import { useState, useEffect } from 'react'
 import type { RawMaterial } from '../types/warehouse'
 import {
   getRawMaterials,
-  saveRawMaterials,
   addRawMaterial,
   updateRawMaterial,
   deleteRawMaterial,
   addMaterialBatch,
+  updateMaterialBatch,
+  deleteMaterialBatch,
   getLowStockAlerts,
-  seedRawMaterials,
-  seedInitialStock,
-} from '../utils/warehouseStorage'
+  seedWarehouse,
+} from '../utils/warehouseApi'
 import './Warehouse.css'
 
 const RawMaterials = () => {
   const [materials, setMaterials] = useState<RawMaterial[]>([])
   const [alerts, setAlerts] = useState<RawMaterial[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [showAddMaterial, setShowAddMaterial] = useState(false)
   const [showAddBatch, setShowAddBatch] = useState<string | null>(null)
   const [editingMaterial, setEditingMaterial] = useState<string | null>(null)
@@ -24,7 +26,6 @@ const RawMaterials = () => {
 
   // Add material form
   const [newName, setNewName] = useState('')
-  const [newUnit, setNewUnit] = useState('g')
   const [newThreshold, setNewThreshold] = useState('')
   const [newSupplier, setNewSupplier] = useState('')
   const [newLink, setNewLink] = useState('')
@@ -49,66 +50,95 @@ const RawMaterials = () => {
   const [editBatchDate, setEditBatchDate] = useState('')
 
   useEffect(() => {
-    seedRawMaterials()
-    seedInitialStock()
     refreshData()
   }, [])
 
-  const refreshData = () => {
-    setMaterials(getRawMaterials())
-    setAlerts(getLowStockAlerts())
+  const refreshData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const [mats, low] = await Promise.all([getRawMaterials(), getLowStockAlerts()])
+      setMaterials(mats)
+      setAlerts(low)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Chyba načítání surovin')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleAddMaterial = (e: React.FormEvent) => {
-    e.preventDefault()
-    addRawMaterial({
-      name: newName,
-      unit: newUnit,
-      lowStockThreshold: Number(newThreshold) || 0,
-      supplierName: newSupplier || undefined,
-      purchaseLink: newLink || undefined,
-      notes: newNotes || undefined,
-    })
-    setNewName('')
-    setNewUnit('g')
-    setNewThreshold('')
-    setNewSupplier('')
-    setNewLink('')
-    setNewNotes('')
-    setShowAddMaterial(false)
-    refreshData()
-  }
-
-  const handleAddBatch = (e: React.FormEvent, materialId: string) => {
-    e.preventDefault()
-    addMaterialBatch(materialId, {
-      batchNumber,
-      quantity: Number(batchQuantity),
-      unit: materials.find(m => m.id === materialId)?.unit || 'g',
-      dateStocked: batchDate,
-    })
-    setBatchNumber('')
-    setBatchQuantity('')
-    setBatchDate(new Date().toISOString().split('T')[0])
-    setShowAddBatch(null)
-    refreshData()
-  }
-
-  const handleUpdateMaterial = (id: string) => {
-    updateRawMaterial(id, {
-      lowStockThreshold: Number(editThreshold) || 0,
-      supplierName: editSupplier || undefined,
-      purchaseLink: editLink || undefined,
-      notes: editNotes || undefined,
-    })
-    setEditingMaterial(null)
-    refreshData()
-  }
-
-  const handleDeleteMaterial = (id: string) => {
-    if (confirm('Opravdu smazat tuto surovinu?')) {
-      deleteRawMaterial(id)
+  const handleSeed = async () => {
+    try {
+      const result = await seedWarehouse()
+      alert(result.message)
       refreshData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Seed selhal')
+    }
+  }
+
+  const handleAddMaterial = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      await addRawMaterial({
+        name: newName,
+        lowStockThreshold: Number(newThreshold) || 0,
+        supplierName: newSupplier || undefined,
+        purchaseLink: newLink || undefined,
+        notes: newNotes || undefined,
+      })
+      setNewName('')
+      setNewThreshold('')
+      setNewSupplier('')
+      setNewLink('')
+      setNewNotes('')
+      setShowAddMaterial(false)
+      refreshData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Chyba při ukládání suroviny')
+    }
+  }
+
+  const handleAddBatch = async (e: React.FormEvent, materialId: string) => {
+    e.preventDefault()
+    try {
+      await addMaterialBatch(materialId, {
+        batchNumber,
+        quantity: Number(batchQuantity),
+        dateStocked: batchDate,
+      })
+      setBatchNumber('')
+      setBatchQuantity('')
+      setBatchDate(new Date().toISOString().split('T')[0])
+      setShowAddBatch(null)
+      refreshData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Chyba při naskladnění šarže')
+    }
+  }
+
+  const handleUpdateMaterial = async (id: string) => {
+    try {
+      await updateRawMaterial(id, {
+        lowStockThreshold: Number(editThreshold) || 0,
+        supplierName: editSupplier || undefined,
+        purchaseLink: editLink || undefined,
+        notes: editNotes || undefined,
+      })
+      setEditingMaterial(null)
+      refreshData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Chyba při úpravě suroviny')
+    }
+  }
+
+  const handleDeleteMaterial = async (id: string) => {
+    if (!confirm('Opravdu smazat tuto surovinu?')) return
+    try {
+      await deleteRawMaterial(id)
+      refreshData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Chyba při mazání suroviny')
     }
   }
 
@@ -120,36 +150,30 @@ const RawMaterials = () => {
     setEditBatchDate(batch.dateStocked.split('T')[0])
   }
 
-  const handleSaveBatch = (materialId: string) => {
-    const mats = getRawMaterials()
-    const mat = mats.find(m => m.id === materialId)
-    if (!mat) return
-    const batch = mat.batches.find(b => b.id === editingBatch)
-    if (!batch) return
-
-    batch.batchNumber = editBatchNumber
-    batch.quantity = Number(editBatchQuantity)
-    batch.initialQuantity = Number(editBatchInitial)
-    batch.dateStocked = editBatchDate
-    batch.consumed = batch.quantity <= 0
-
-    mat.currentStock = mat.batches.filter(b => !b.consumed).reduce((sum, b) => sum + b.quantity, 0)
-    mat.updatedAt = new Date().toISOString()
-    saveRawMaterials(mats)
-    setEditingBatch(null)
-    refreshData()
+  const handleSaveBatch = async (materialId: string) => {
+    if (!editingBatch) return
+    try {
+      await updateMaterialBatch(materialId, editingBatch, {
+        batchNumber: editBatchNumber,
+        quantity: Number(editBatchQuantity),
+        initialQuantity: Number(editBatchInitial),
+        dateStocked: editBatchDate,
+      })
+      setEditingBatch(null)
+      refreshData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Chyba při úpravě šarže')
+    }
   }
 
-  const handleDeleteBatch = (materialId: string, batchId: string) => {
+  const handleDeleteBatch = async (materialId: string, batchId: string) => {
     if (!confirm('Opravdu smazat tuto šarži?')) return
-    const mats = getRawMaterials()
-    const mat = mats.find(m => m.id === materialId)
-    if (!mat) return
-    mat.batches = mat.batches.filter(b => b.id !== batchId)
-    mat.currentStock = mat.batches.filter(b => !b.consumed).reduce((sum, b) => sum + b.quantity, 0)
-    mat.updatedAt = new Date().toISOString()
-    saveRawMaterials(mats)
-    refreshData()
+    try {
+      await deleteMaterialBatch(materialId, batchId)
+      refreshData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Chyba při mazání šarže')
+    }
   }
 
   const startEditing = (material: RawMaterial) => {
@@ -169,6 +193,8 @@ const RawMaterials = () => {
         </button>
       </div>
 
+      {error && <div className="error-message">{error}</div>}
+
       {alerts.length > 0 && (
         <div className="alerts-section">
           <h3 className="alerts-toggle" onClick={() => setShowAlerts(!showAlerts)}>
@@ -178,7 +204,7 @@ const RawMaterials = () => {
             <div className="alerts-list">
               {alerts.map(a => (
                 <div key={a.id} className="alert-item">
-                  <strong>{a.name}</strong>: {a.currentStock} {a.unit} (minimum: {a.lowStockThreshold} {a.unit})
+                  <strong>{a.name}</strong>: {a.currentStock} g (minimum: {a.lowStockThreshold} g)
                 </div>
               ))}
             </div>
@@ -196,17 +222,7 @@ const RawMaterials = () => {
                 <input value={newName} onChange={e => setNewName(e.target.value)} required />
               </div>
               <div className="form-group">
-                <label>Jednotka</label>
-                <select value={newUnit} onChange={e => setNewUnit(e.target.value)}>
-                  <option value="g">g</option>
-                  <option value="kg">kg</option>
-                  <option value="ml">ml</option>
-                  <option value="l">l</option>
-                  <option value="ks">ks</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Min. množství (upozornění)</label>
+                <label>Min. množství v g (upozornění)</label>
                 <input type="number" value={newThreshold} onChange={e => setNewThreshold(e.target.value)} />
               </div>
             </div>
@@ -233,8 +249,13 @@ const RawMaterials = () => {
       )}
 
       <div className="materials-list">
-        {materials.length === 0 ? (
-          <p className="empty-state">Zatím nemáte žádné suroviny. Přidejte první!</p>
+        {loading ? (
+          <p className="empty-state">Načítání…</p>
+        ) : materials.length === 0 ? (
+          <div className="empty-state">
+            <p>Zatím nemáte žádné suroviny.</p>
+            <button className="btn-secondary" onClick={handleSeed}>📥 Naplnit výchozí data</button>
+          </div>
         ) : (
           materials.map(material => (
             <div key={material.id} className={`material-card ${material.currentStock <= material.lowStockThreshold ? 'low-stock' : ''}`}>
@@ -242,7 +263,7 @@ const RawMaterials = () => {
                 <div className="material-info">
                   <h4>{material.name}</h4>
                   <span className="stock-badge">
-                    {material.currentStock} {material.unit}
+                    {material.currentStock} g
                   </span>
                   {material.currentStock <= material.lowStockThreshold && (
                     <span className="low-badge">⚠️ Dochází</span>
@@ -273,7 +294,7 @@ const RawMaterials = () => {
                 <div className="edit-form">
                   <div className="form-row">
                     <div className="form-group">
-                      <label>Min. množství</label>
+                      <label>Min. množství (g)</label>
                       <input type="number" value={editThreshold} onChange={e => setEditThreshold(e.target.value)} />
                     </div>
                     <div className="form-group">
@@ -306,7 +327,7 @@ const RawMaterials = () => {
                         <input value={batchNumber} onChange={e => setBatchNumber(e.target.value)} required />
                       </div>
                       <div className="form-group">
-                        <label>Množství ({material.unit}) *</label>
+                        <label>Množství (g) *</label>
                         <input type="number" step="0.01" value={batchQuantity} onChange={e => setBatchQuantity(e.target.value)} required />
                       </div>
                       <div className="form-group">
@@ -340,14 +361,14 @@ const RawMaterials = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {material.batches
+                        {[...material.batches]
                           .sort((a, b) => new Date(a.dateStocked).getTime() - new Date(b.dateStocked).getTime())
                           .map(batch => (
                             editingBatch === batch.id ? (
                               <tr key={batch.id}>
                                 <td><input value={editBatchNumber} onChange={e => setEditBatchNumber(e.target.value)} style={{width: '100px'}} /></td>
-                                <td><input type="number" value={editBatchQuantity} onChange={e => setEditBatchQuantity(e.target.value)} style={{width: '70px'}} /> {material.unit}</td>
-                                <td><input type="number" value={editBatchInitial} onChange={e => setEditBatchInitial(e.target.value)} style={{width: '70px'}} /> {material.unit}</td>
+                                <td><input type="number" value={editBatchQuantity} onChange={e => setEditBatchQuantity(e.target.value)} style={{width: '70px'}} /> g</td>
+                                <td><input type="number" value={editBatchInitial} onChange={e => setEditBatchInitial(e.target.value)} style={{width: '70px'}} /> g</td>
                                 <td><input type="date" value={editBatchDate} onChange={e => setEditBatchDate(e.target.value)} /></td>
                                 <td>{Number(editBatchQuantity) <= 0 ? <span className="badge-consumed">Spotřebováno</span> : <span className="badge-active">Aktivní</span>}</td>
                                 <td>
@@ -358,8 +379,8 @@ const RawMaterials = () => {
                             ) : (
                               <tr key={batch.id} className={batch.consumed ? 'consumed' : ''}>
                                 <td>{batch.batchNumber}</td>
-                                <td>{batch.quantity} {material.unit}</td>
-                                <td>{batch.initialQuantity} {material.unit}</td>
+                                <td>{batch.quantity} g</td>
+                                <td>{batch.initialQuantity} g</td>
                                 <td>{new Date(batch.dateStocked).toLocaleDateString('cs-CZ')}</td>
                                 <td>
                                   {batch.consumed ? (
