@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { ALLOWED_BOMB_WEIGHTS } from '../constants/variants'
 import './StockManagement.css'
 
 interface BombVariant {
@@ -757,10 +758,9 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
                             required
                           >
                             <option value="">-- Váha --</option>
-                            <option value="150">150g</option>
-                            <option value="120">120g</option>
-                            <option value="115">115g</option>
-                            <option value="40">40g</option>
+                            {ALLOWED_BOMB_WEIGHTS.map((w) => (
+                              <option key={w} value={w}>{w}g</option>
+                            ))}
                           </select>
                           <input
                             type="number"
