@@ -86,6 +86,29 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
+  // Delete confirmation modal (whole product)
+  const [deleteTarget, setDeleteTarget] = useState<
+    { type: 'bathbomb' | 'steamer' | 'damaged'; id: string; name: string } | null
+  >(null)
+  const [deleting, setDeleting] = useState(false)
+
+  // Stock-adjustment modal — remove pieces from a bomb variant / steamer / damaged product
+  const [adjustTarget, setAdjustTarget] = useState<
+    {
+      kind: 'bomb' | 'steamer' | 'damaged'
+      deleteType: 'bathbomb' | 'steamer' | 'damaged'
+      id: string
+      productName: string
+      label: string
+      stock: number
+      li?: number
+      bi?: number
+      vi?: number
+    } | null
+  >(null)
+  const [removeQty, setRemoveQty] = useState('1')
+  const [savingAdjust, setSavingAdjust] = useState(false)
+
   // Add form states
   const [productType, setProductType] = useState<'bathbomb' | 'steamer' | 'damaged'>('bathbomb')
   const [operation, setOperation] = useState<'add' | 'remove'>('add')
@@ -137,6 +160,122 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
       console.error('Error fetching stock:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const deleteEndpoint = (type: 'bathbomb' | 'steamer' | 'damaged') =>
+    type === 'bathbomb' ? 'bombs' : type === 'steamer' ? 'steamers' : 'damaged-products'
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    setError(null)
+    setSuccessMessage(null)
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/${deleteEndpoint(deleteTarget.type)}/${deleteTarget.id}`,
+        {
+          method: 'DELETE',
+          headers: { 'x-api-key': import.meta.env.VITE_API_KEY || '' },
+        }
+      )
+      if (response.ok) {
+        setSuccessMessage(`Úspěšně smazáno: ${deleteTarget.name}`)
+        setDeleteTarget(null)
+        fetchStock()
+      } else {
+        const errData = await response.json().catch(() => ({}))
+        setError(errData.message || 'Nepodařilo se smazat položku')
+      }
+    } catch (err) {
+      setError('Chyba při mazání položky')
+      console.error('Error deleting:', err)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const adjustStock = async () => {
+    if (!adjustTarget) return
+    const qty = parseInt(removeQty)
+    if (!qty || qty < 1) {
+      setError('Zadejte platný počet kusů')
+      return
+    }
+
+    setSavingAdjust(true)
+    setError(null)
+    setSuccessMessage(null)
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+        'x-api-key': import.meta.env.VITE_API_KEY || '',
+      }
+      let response: Response
+      let removedVariant = false
+
+      if (adjustTarget.kind === 'bomb') {
+        const bomb = bombs.find((b) => b._id === adjustTarget.id)
+        if (!bomb) throw new Error('Koule nenalezena')
+        const lots: BombLot[] = JSON.parse(JSON.stringify(bomb.lots))
+        const li = adjustTarget.li!
+        const bi = adjustTarget.bi!
+        const vi = adjustTarget.vi!
+        const variant = lots[li].batches[bi].variants[vi]
+        const remaining = variant.stockCount - qty
+        if (remaining > 0) {
+          variant.stockCount = remaining
+          variant.inStock = true
+        } else {
+          // remove the whole variant, then clean up empty batch / lot
+          removedVariant = true
+          lots[li].batches[bi].variants.splice(vi, 1)
+          if (lots[li].batches[bi].variants.length === 0) lots[li].batches.splice(bi, 1)
+          if (lots[li].batches.length === 0) lots.splice(li, 1)
+        }
+        response = await fetch(`${apiBaseUrl}/bombs/${adjustTarget.id}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({ lots }),
+        })
+      } else if (adjustTarget.kind === 'steamer') {
+        const steamer = steamers.find((s) => s._id === adjustTarget.id)
+        if (!steamer) throw new Error('Steamer nenalezen')
+        const newTotal = Math.max(0, steamer.stockCount - qty)
+        response = await fetch(`${apiBaseUrl}/steamers/${adjustTarget.id}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({ ...steamer, stockCount: newTotal, inStock: newTotal > 0 }),
+        })
+      } else {
+        const dp = damagedProducts.find((d) => d._id === adjustTarget.id)
+        if (!dp) throw new Error('Produkt nenalezen')
+        const newStock = Math.max(0, dp.stockCount - qty)
+        response = await fetch(`${apiBaseUrl}/damaged-products/${adjustTarget.id}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({ ...dp, stockCount: newStock, inStock: newStock > 0 }),
+        })
+      }
+
+      if (response.ok) {
+        setSuccessMessage(
+          removedVariant
+            ? `Varianta odstraněna: ${adjustTarget.label}`
+            : `Odebráno ${qty} ks — ${adjustTarget.label}`
+        )
+        setAdjustTarget(null)
+        setRemoveQty('1')
+        fetchStock()
+      } else {
+        const errData = await response.json().catch(() => ({}))
+        setError(errData.message || 'Nepodařilo se upravit sklad')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Chyba při úpravě skladu')
+      console.error('Error adjusting stock:', err)
+    } finally {
+      setSavingAdjust(false)
     }
   }
 
@@ -466,6 +605,8 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
 
       {activeTab === 'overview' && (
         <div className="overview-section">
+          {error && <div className="error-message">{error}</div>}
+          {successMessage && <div className="success-message">{successMessage}</div>}
           <div className="stock-stats">
             <div className="stat-card">
               <h3>Celkem na skladě</h3>
@@ -509,12 +650,13 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
                           <th>Cena</th>
                           <th>Skladem</th>
                           <th>Stav</th>
+                          <th>Akce</th>
                         </tr>
                       </thead>
                       <tbody>
                         {bombs.map((bomb) =>
-                          bomb.lots.map((lot) =>
-                            lot.batches.map((batch) =>
+                          bomb.lots.map((lot, lotIndex) =>
+                            lot.batches.map((batch, batchIndex) =>
                               batch.variants.map((variant, vIndex) => (
                                 <tr key={`${bomb._id}-${lot.lotNumber}-${batch.batchId}-${vIndex}`}>
                                   <td>{bomb.name}</td>
@@ -531,6 +673,27 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
                                     <span className={`status ${variant.inStock ? 'in-stock' : 'out-of-stock'}`}>
                                       {variant.inStock ? '✓ Skladem' : '✗ Vyprodáno'}
                                     </span>
+                                  </td>
+                                  <td className="action-cell">
+                                    <button
+                                      className="btn-remove-qty"
+                                      onClick={() => {
+                                        setAdjustTarget({
+                                          kind: 'bomb',
+                                          deleteType: 'bathbomb',
+                                          id: bomb._id,
+                                          productName: bomb.name,
+                                          label: `${bomb.name} (${variant.weight}g)`,
+                                          stock: variant.stockCount,
+                                          li: lotIndex,
+                                          bi: batchIndex,
+                                          vi: vIndex,
+                                        })
+                                        setRemoveQty('1')
+                                      }}
+                                    >
+                                      ➖ Odebrat
+                                    </button>
                                   </td>
                                 </tr>
                               ))
@@ -558,6 +721,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
                           <th>Ks v batchi</th>
                           <th>Celkem</th>
                           <th>Stav</th>
+                          <th>Akce</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -580,6 +744,24 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
                                       {steamer.inStock ? '✓ Skladem' : '✗ Vyprodáno'}
                                     </span>
                                   </td>
+                                  <td className="action-cell">
+                                    <button
+                                      className="btn-remove-qty"
+                                      onClick={() => {
+                                        setAdjustTarget({
+                                          kind: 'steamer',
+                                          deleteType: 'steamer',
+                                          id: steamer._id,
+                                          productName: steamer.name,
+                                          label: steamer.name,
+                                          stock: steamer.stockCount,
+                                        })
+                                        setRemoveQty('1')
+                                      }}
+                                    >
+                                      ➖ Odebrat
+                                    </button>
+                                  </td>
                                 </tr>
                               ))
                             )
@@ -598,6 +780,14 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
                                 <span className={`status ${steamer.inStock ? 'in-stock' : 'out-of-stock'}`}>
                                   {steamer.inStock ? '✓ Skladem' : '✗ Vyprodáno'}
                                 </span>
+                              </td>
+                              <td className="action-cell">
+                                <button
+                                  className="btn-delete"
+                                  onClick={() => setDeleteTarget({ type: 'steamer', id: steamer._id, name: steamer.name })}
+                                >
+                                  🗑️ Smazat
+                                </button>
                               </td>
                             </tr>
                           )
@@ -623,6 +813,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
                           <th>Stupeň poškození</th>
                           <th>Skladem</th>
                           <th>Stav</th>
+                          <th>Akce</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -641,6 +832,24 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
                               <span className={`status ${dp.inStock ? 'in-stock' : 'out-of-stock'}`}>
                                 {dp.inStock ? '✓ Skladem' : '✗ Vyprodáno'}
                               </span>
+                            </td>
+                            <td className="action-cell">
+                              <button
+                                className="btn-remove-qty"
+                                onClick={() => {
+                                  setAdjustTarget({
+                                    kind: 'damaged',
+                                    deleteType: 'damaged',
+                                    id: dp._id,
+                                    productName: `${dp.bathBombType} ${dp.weight}g`,
+                                    label: `${dp.bathBombType} ${dp.weight}g`,
+                                    stock: dp.stockCount,
+                                  })
+                                  setRemoveQty('1')
+                                }}
+                              >
+                                ➖ Odebrat
+                              </button>
                             </td>
                           </tr>
                         ))}
@@ -973,6 +1182,88 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {adjustTarget && (
+        <div className="modal-overlay" onClick={() => !savingAdjust && setAdjustTarget(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Odebrat ze skladu</h3>
+            <p>
+              <strong>{adjustTarget.label}</strong> (skladem {adjustTarget.stock} ks)
+            </p>
+            <div className="form-group">
+              <label htmlFor="remove-qty">Počet kusů k odebrání</label>
+              <input
+                id="remove-qty"
+                type="number"
+                min="1"
+                max={adjustTarget.stock}
+                value={removeQty}
+                onChange={(e) => setRemoveQty(e.target.value)}
+              />
+              {adjustTarget.kind === 'bomb' && (
+                <small className="modal-hint">
+                  Odebrání všech {adjustTarget.stock} ks tuto variantu ze skladu odstraní.
+                </small>
+              )}
+            </div>
+            <div className="modal-actions">
+              <button
+                className="btn-cancel"
+                onClick={() => setAdjustTarget(null)}
+                disabled={savingAdjust}
+              >
+                Zrušit
+              </button>
+              <button
+                className="btn-confirm-delete"
+                onClick={adjustStock}
+                disabled={savingAdjust}
+              >
+                {savingAdjust ? 'Ukládám…' : '➖ Odebrat kusy'}
+              </button>
+            </div>
+            <hr className="modal-divider" />
+            <button
+              className="btn-delete-whole"
+              disabled={savingAdjust}
+              onClick={() => {
+                const t = adjustTarget
+                setAdjustTarget(null)
+                setDeleteTarget({ type: t.deleteType, id: t.id, name: t.productName })
+              }}
+            >
+              🗑️ Smazat celý{' '}
+              {adjustTarget.kind === 'bomb'
+                ? `produkt „${adjustTarget.productName}" (všechny šarže)`
+                : adjustTarget.kind === 'steamer'
+                  ? `steamer „${adjustTarget.productName}"`
+                  : `produkt „${adjustTarget.productName}"`}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div className="modal-overlay" onClick={() => !deleting && setDeleteTarget(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Opravdu smazat?</h3>
+            <p>
+              Chystáte se nenávratně smazat <strong>{deleteTarget.name}</strong>
+              {deleteTarget.type === 'bathbomb' && ' (včetně všech LOTů, šarží a variant)'}
+              {deleteTarget.type === 'steamer' && ' (včetně všech LOTů a šarží)'}
+              . Tuto akci nelze vzít zpět.
+            </p>
+            <div className="modal-actions">
+              <button className="btn-cancel" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+                Zrušit
+              </button>
+              <button className="btn-confirm-delete" onClick={confirmDelete} disabled={deleting}>
+                {deleting ? 'Mažu…' : '🗑️ Smazat'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
