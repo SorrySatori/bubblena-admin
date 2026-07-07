@@ -262,11 +262,11 @@ const RawMaterials = () => {
               <div className="material-header" onClick={() => setExpandedMaterial(expandedMaterial === material.id ? null : material.id)}>
                 <div className="material-info">
                   <h4>{material.name}</h4>
-                  <span className="stock-badge">
+                  <span className={`stock-badge ${material.currentStock <= material.lowStockThreshold ? 'stock-badge-low' : ''}`}>
                     {material.currentStock} g
                   </span>
                   {material.currentStock <= material.lowStockThreshold && (
-                    <span className="low-badge">⚠️ Dochází</span>
+                    <span className="low-badge">⚠️ Dochází – objednat (min. {material.lowStockThreshold} g)</span>
                   )}
                 </div>
                 <div className="material-actions">
