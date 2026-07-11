@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { ALLOWED_BOMB_WEIGHTS } from '../constants/variants'
+import MultiSelect, { type MultiSelectOption } from './MultiSelect'
 import './StockManagement.css'
 
 interface BombVariant {
@@ -92,7 +93,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
   >(null)
   const [deleting, setDeleting] = useState(false)
 
-  // Stock-adjustment modal — remove pieces from a bomb variant / steamer / damaged product
+  // Stock-adjustment modal — remove pieces from a bomb weight variant / steamer / damaged product
   const [adjustTarget, setAdjustTarget] = useState<
     {
       kind: 'bomb' | 'steamer' | 'damaged'
@@ -101,13 +102,21 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
       productName: string
       label: string
       stock: number
-      li?: number
-      bi?: number
-      vi?: number
+      weight?: number // bombs: which weight variant to draw down (across all batches)
     } | null
   >(null)
   const [removeQty, setRemoveQty] = useState('1')
   const [savingAdjust, setSavingAdjust] = useState(false)
+
+  // Filtering & sorting (overview tables)
+  const [bombNameFilter, setBombNameFilter] = useState<string[]>([])
+  const [bombWeightFilter, setBombWeightFilter] = useState<string[]>([])
+  const [bombSort, setBombSort] = useState<{ key: 'name' | 'weight' | 'price' | 'stock'; dir: 'asc' | 'desc' }>({ key: 'name', dir: 'asc' })
+  const [steamerNameFilter, setSteamerNameFilter] = useState<string[]>([])
+  const [steamerSort, setSteamerSort] = useState<{ key: 'name' | 'stock'; dir: 'asc' | 'desc' }>({ key: 'name', dir: 'asc' })
+  const [damagedTypeFilter, setDamagedTypeFilter] = useState<string[]>([])
+  const [damagedWeightFilter, setDamagedWeightFilter] = useState<string[]>([])
+  const [damagedSort, setDamagedSort] = useState<{ key: 'type' | 'weight' | 'price' | 'stock'; dir: 'asc' | 'desc' }>({ key: 'type', dir: 'asc' })
 
   // Add form states
   const [productType, setProductType] = useState<'bathbomb' | 'steamer' | 'damaged'>('bathbomb')
@@ -217,22 +226,34 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
       if (adjustTarget.kind === 'bomb') {
         const bomb = bombs.find((b) => b._id === adjustTarget.id)
         if (!bomb) throw new Error('Koule nenalezena')
+        const weight = adjustTarget.weight!
         const lots: BombLot[] = JSON.parse(JSON.stringify(bomb.lots))
-        const li = adjustTarget.li!
-        const bi = adjustTarget.bi!
-        const vi = adjustTarget.vi!
-        const variant = lots[li].batches[bi].variants[vi]
-        const remaining = variant.stockCount - qty
-        if (remaining > 0) {
-          variant.stockCount = remaining
-          variant.inStock = true
-        } else {
-          // remove the whole variant, then clean up empty batch / lot
-          removedVariant = true
-          lots[li].batches[bi].variants.splice(vi, 1)
-          if (lots[li].batches[bi].variants.length === 0) lots[li].batches.splice(bi, 1)
+
+        // Draw down `qty` pieces of this weight across all batches (oldest first).
+        let toRemove = qty
+        for (const lot of lots) {
+          for (const batch of lot.batches) {
+            for (const variant of batch.variants) {
+              if (toRemove <= 0) break
+              if (variant.weight !== weight) continue
+              const take = Math.min(variant.stockCount, toRemove)
+              variant.stockCount -= take
+              variant.inStock = variant.stockCount > 0
+              toRemove -= take
+            }
+          }
+        }
+
+        // Clean up emptied variants / batches / lots.
+        for (let li = lots.length - 1; li >= 0; li--) {
+          for (let bi = lots[li].batches.length - 1; bi >= 0; bi--) {
+            lots[li].batches[bi].variants = lots[li].batches[bi].variants.filter((v) => v.stockCount > 0)
+            if (lots[li].batches[bi].variants.length === 0) lots[li].batches.splice(bi, 1)
+          }
           if (lots[li].batches.length === 0) lots.splice(li, 1)
         }
+        removedVariant = qty >= adjustTarget.stock
+
         response = await fetch(`${apiBaseUrl}/bombs/${adjustTarget.id}`, {
           method: 'PUT',
           headers,
@@ -580,6 +601,93 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
     setNewVariants(updated)
   }
 
+  // ---- filtering & sorting helpers ----
+  const cmp = (a: number | string, b: number | string) =>
+    typeof a === 'string' && typeof b === 'string' ? a.localeCompare(b, 'cs') : Number(a) - Number(b)
+
+  const toggleSort = <T extends string>(
+    sort: { key: T; dir: 'asc' | 'desc' },
+    setSort: (s: { key: T; dir: 'asc' | 'desc' }) => void,
+    key: T
+  ) => setSort(sort.key === key ? { key, dir: sort.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' })
+
+  const arrow = (active: boolean, dir: 'asc' | 'desc') => (active ? (dir === 'asc' ? ' ▲' : ' ▼') : '')
+
+  // Filter option lists (derived from current data)
+  const bombNameOptions: MultiSelectOption[] = [...new Set(bombs.map((b) => b.name))]
+    .sort((a, b) => a.localeCompare(b, 'cs'))
+    .map((n) => ({ value: n, label: n }))
+  const bombWeightOptions: MultiSelectOption[] = [
+    ...new Set(bombs.flatMap((b) => b.lots.flatMap((l) => l.batches.flatMap((bt) => bt.variants.map((v) => v.weight))))),
+  ]
+    .sort((a, b) => a - b)
+    .map((w) => ({ value: String(w), label: `${w}g` }))
+  const damagedTypeOptions: MultiSelectOption[] = [...new Set(damagedProducts.map((d) => d.bathBombType))]
+    .sort((a, b) => a.localeCompare(b, 'cs'))
+    .map((t) => ({ value: t, label: t }))
+  const damagedWeightOptions: MultiSelectOption[] = [...new Set(damagedProducts.map((d) => d.weight))]
+    .sort((a, b) => a - b)
+    .map((w) => ({ value: String(w), label: `${w}g` }))
+  const steamerNameOptions: MultiSelectOption[] = [...new Set(steamers.map((s) => s.name))]
+    .sort((a, b) => a.localeCompare(b, 'cs'))
+    .map((n) => ({ value: n, label: n }))
+
+  // Bombs aggregated per weight variant (batches summed together)
+  const bombRows = bombs
+    .flatMap((bomb) => {
+      const byWeight = new Map<number, { price: number; stock: number }>()
+      bomb.lots.forEach((lot) =>
+        lot.batches.forEach((batch) =>
+          batch.variants.forEach((v) => {
+            const cur = byWeight.get(v.weight) || { price: v.price, stock: 0 }
+            cur.stock += v.stockCount
+            cur.price = v.price
+            byWeight.set(v.weight, cur)
+          })
+        )
+      )
+      return [...byWeight.entries()].map(([weight, { price, stock }]) => ({
+        bombId: bomb._id,
+        bombName: bomb.name,
+        weight,
+        price,
+        stock,
+      }))
+    })
+    .filter(
+      (r) =>
+        (bombNameFilter.length === 0 || bombNameFilter.includes(r.bombName)) &&
+        (bombWeightFilter.length === 0 || bombWeightFilter.includes(String(r.weight)))
+    )
+    .sort((a, b) => {
+      const d = bombSort.dir === 'asc' ? 1 : -1
+      if (bombSort.key === 'name') return cmp(a.bombName, b.bombName) * d || cmp(a.weight, b.weight)
+      return cmp(a[bombSort.key], b[bombSort.key]) * d
+    })
+
+  const filteredSteamers = steamers
+    .filter((s) => steamerNameFilter.length === 0 || steamerNameFilter.includes(s.name))
+    .slice()
+    .sort((a, b) => {
+      const d = steamerSort.dir === 'asc' ? 1 : -1
+      return (steamerSort.key === 'name' ? cmp(a.name, b.name) : cmp(a.stockCount, b.stockCount)) * d
+    })
+
+  const filteredDamaged = damagedProducts
+    .filter(
+      (d) =>
+        (damagedTypeFilter.length === 0 || damagedTypeFilter.includes(d.bathBombType)) &&
+        (damagedWeightFilter.length === 0 || damagedWeightFilter.includes(String(d.weight)))
+    )
+    .slice()
+    .sort((a, b) => {
+      const d = damagedSort.dir === 'asc' ? 1 : -1
+      if (damagedSort.key === 'type') return cmp(a.bathBombType, b.bathBombType) * d
+      if (damagedSort.key === 'weight') return cmp(a.weight, b.weight) * d
+      if (damagedSort.key === 'price') return cmp(a.price, b.price) * d
+      return cmp(a.stockCount, b.stockCount) * d
+    })
+
   return (
     <div className="stock-management">
       <div className="tabs">
@@ -636,70 +744,70 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
             <>
               <div className="stock-section">
                 <h2>🛜 Koupelové koule</h2>
+                <div className="filter-bar">
+                  <MultiSelect label="Název" options={bombNameOptions} selected={bombNameFilter} onChange={setBombNameFilter} />
+                  <MultiSelect label="Váha" options={bombWeightOptions} selected={bombWeightFilter} onChange={setBombWeightFilter} />
+                </div>
                 {bombs.length === 0 ? (
                   <p className="no-data">Žádné koupelové koule nenalezeny</p>
+                ) : bombRows.length === 0 ? (
+                  <p className="no-data">Nic neodpovídá hledání.</p>
                 ) : (
                   <div className="stock-table">
                     <table>
                       <thead>
                         <tr>
-                          <th>Název</th>
-                          <th>LOT</th>
-                          <th>Batch</th>
-                          <th>Váha</th>
-                          <th>Cena</th>
-                          <th>Skladem</th>
+                          <th className="sortable" onClick={() => toggleSort(bombSort, setBombSort, 'name')}>
+                            Název{arrow(bombSort.key === 'name', bombSort.dir)}
+                          </th>
+                          <th className="sortable" onClick={() => toggleSort(bombSort, setBombSort, 'weight')}>
+                            Váha{arrow(bombSort.key === 'weight', bombSort.dir)}
+                          </th>
+                          <th className="sortable" onClick={() => toggleSort(bombSort, setBombSort, 'price')}>
+                            Cena{arrow(bombSort.key === 'price', bombSort.dir)}
+                          </th>
+                          <th className="sortable" onClick={() => toggleSort(bombSort, setBombSort, 'stock')}>
+                            Skladem{arrow(bombSort.key === 'stock', bombSort.dir)}
+                          </th>
                           <th>Stav</th>
                           <th>Akce</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {bombs.map((bomb) =>
-                          bomb.lots.map((lot, lotIndex) =>
-                            lot.batches.map((batch, batchIndex) =>
-                              batch.variants.map((variant, vIndex) => (
-                                <tr key={`${bomb._id}-${lot.lotNumber}-${batch.batchId}-${vIndex}`}>
-                                  <td>{bomb.name}</td>
-                                  <td>{lot.lotNumber}</td>
-                                  <td>{batch.batchId}</td>
-                                  <td>{variant.weight}g</td>
-                                  <td>{variant.price} Kč</td>
-                                  <td>
-                                    <span className={variant.stockCount < 10 ? 'low-stock' : ''}>
-                                      {variant.stockCount}
-                                    </span>
-                                  </td>
-                                  <td>
-                                    <span className={`status ${variant.inStock ? 'in-stock' : 'out-of-stock'}`}>
-                                      {variant.inStock ? '✓ Skladem' : '✗ Vyprodáno'}
-                                    </span>
-                                  </td>
-                                  <td className="action-cell">
-                                    <button
-                                      className="btn-remove-qty"
-                                      onClick={() => {
-                                        setAdjustTarget({
-                                          kind: 'bomb',
-                                          deleteType: 'bathbomb',
-                                          id: bomb._id,
-                                          productName: bomb.name,
-                                          label: `${bomb.name} (${variant.weight}g)`,
-                                          stock: variant.stockCount,
-                                          li: lotIndex,
-                                          bi: batchIndex,
-                                          vi: vIndex,
-                                        })
-                                        setRemoveQty('1')
-                                      }}
-                                    >
-                                      ➖ Odebrat
-                                    </button>
-                                  </td>
-                                </tr>
-                              ))
-                            )
-                          )
-                        )}
+                        {bombRows.map((row) => (
+                          <tr key={`${row.bombId}-${row.weight}`}>
+                            <td>{row.bombName}</td>
+                            <td>{row.weight}g</td>
+                            <td>{row.price} Kč</td>
+                            <td>
+                              <span className={row.stock < 10 ? 'low-stock' : ''}>{row.stock}</span>
+                            </td>
+                            <td>
+                              <span className={`status ${row.stock > 0 ? 'in-stock' : 'out-of-stock'}`}>
+                                {row.stock > 0 ? '✓ Skladem' : '✗ Vyprodáno'}
+                              </span>
+                            </td>
+                            <td className="action-cell">
+                              <button
+                                className="btn-remove-qty"
+                                onClick={() => {
+                                  setAdjustTarget({
+                                    kind: 'bomb',
+                                    deleteType: 'bathbomb',
+                                    id: row.bombId,
+                                    productName: row.bombName,
+                                    label: `${row.bombName} (${row.weight}g)`,
+                                    stock: row.stock,
+                                    weight: row.weight,
+                                  })
+                                  setRemoveQty('1')
+                                }}
+                              >
+                                ➖ Odebrat
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>
@@ -708,24 +816,33 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
 
               <div className="stock-section">
                 <h2>💨 Steamery</h2>
+                <div className="filter-bar">
+                  <MultiSelect label="Název" options={steamerNameOptions} selected={steamerNameFilter} onChange={setSteamerNameFilter} />
+                </div>
                 {steamers.length === 0 ? (
                   <p className="no-data">Žádné steamery nenalezeny</p>
+                ) : filteredSteamers.length === 0 ? (
+                  <p className="no-data">Nic neodpovídá hledání.</p>
                 ) : (
                   <div className="stock-table">
                     <table>
                       <thead>
                         <tr>
-                          <th>Název</th>
+                          <th className="sortable" onClick={() => toggleSort(steamerSort, setSteamerSort, 'name')}>
+                            Název{arrow(steamerSort.key === 'name', steamerSort.dir)}
+                          </th>
                           <th>LOT</th>
                           <th>Batch</th>
                           <th>Ks v batchi</th>
-                          <th>Celkem</th>
+                          <th className="sortable" onClick={() => toggleSort(steamerSort, setSteamerSort, 'stock')}>
+                            Celkem{arrow(steamerSort.key === 'stock', steamerSort.dir)}
+                          </th>
                           <th>Stav</th>
                           <th>Akce</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {steamers.map((steamer) =>
+                        {filteredSteamers.map((steamer) =>
                           steamer.lots && steamer.lots.length > 0 ? (
                             steamer.lots.map((lot) =>
                               lot.batches.map((batch) => (
@@ -783,10 +900,20 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
                               </td>
                               <td className="action-cell">
                                 <button
-                                  className="btn-delete"
-                                  onClick={() => setDeleteTarget({ type: 'steamer', id: steamer._id, name: steamer.name })}
+                                  className="btn-remove-qty"
+                                  onClick={() => {
+                                    setAdjustTarget({
+                                      kind: 'steamer',
+                                      deleteType: 'steamer',
+                                      id: steamer._id,
+                                      productName: steamer.name,
+                                      label: steamer.name,
+                                      stock: steamer.stockCount,
+                                    })
+                                    setRemoveQty('1')
+                                  }}
                                 >
-                                  🗑️ Smazat
+                                  ➖ Odebrat
                                 </button>
                               </td>
                             </tr>
@@ -800,24 +927,38 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
 
               <div className="stock-section">
                 <h2>💔 Poškozené produkty (Zachraň kouli)</h2>
+                <div className="filter-bar">
+                  <MultiSelect label="Druh" options={damagedTypeOptions} selected={damagedTypeFilter} onChange={setDamagedTypeFilter} />
+                  <MultiSelect label="Váha" options={damagedWeightOptions} selected={damagedWeightFilter} onChange={setDamagedWeightFilter} />
+                </div>
                 {damagedProducts.length === 0 ? (
                   <p className="no-data">Žádné poškozené produkty nenalezeny</p>
+                ) : filteredDamaged.length === 0 ? (
+                  <p className="no-data">Nic neodpovídá hledání.</p>
                 ) : (
                   <div className="stock-table">
                     <table>
                       <thead>
                         <tr>
-                          <th>Druh koule</th>
-                          <th>Váha</th>
-                          <th>Cena</th>
+                          <th className="sortable" onClick={() => toggleSort(damagedSort, setDamagedSort, 'type')}>
+                            Druh koule{arrow(damagedSort.key === 'type', damagedSort.dir)}
+                          </th>
+                          <th className="sortable" onClick={() => toggleSort(damagedSort, setDamagedSort, 'weight')}>
+                            Váha{arrow(damagedSort.key === 'weight', damagedSort.dir)}
+                          </th>
+                          <th className="sortable" onClick={() => toggleSort(damagedSort, setDamagedSort, 'price')}>
+                            Cena{arrow(damagedSort.key === 'price', damagedSort.dir)}
+                          </th>
                           <th>Stupeň poškození</th>
-                          <th>Skladem</th>
+                          <th className="sortable" onClick={() => toggleSort(damagedSort, setDamagedSort, 'stock')}>
+                            Skladem{arrow(damagedSort.key === 'stock', damagedSort.dir)}
+                          </th>
                           <th>Stav</th>
                           <th>Akce</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {damagedProducts.map((dp) => (
+                        {filteredDamaged.map((dp) => (
                           <tr key={dp._id}>
                             <td>{dp.bathBombType}</td>
                             <td>{dp.weight}g</td>
