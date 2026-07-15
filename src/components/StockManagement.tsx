@@ -262,11 +262,35 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
       } else if (adjustTarget.kind === 'steamer') {
         const steamer = steamers.find((s) => s._id === adjustTarget.id)
         if (!steamer) throw new Error('Steamer nenalezen')
-        const newTotal = Math.max(0, steamer.stockCount - qty)
+        const lots: SteamerLot[] = JSON.parse(JSON.stringify(steamer.lots || []))
+
+        // Draw down `qty` pieces across all batches (oldest first) so the
+        // batches stay the source of truth, in sync with the total.
+        let toRemove = qty
+        for (const lot of lots) {
+          for (const batch of lot.batches) {
+            if (toRemove <= 0) break
+            const take = Math.min(batch.stockCount, toRemove)
+            batch.stockCount -= take
+            toRemove -= take
+          }
+        }
+
+        // Clean up emptied batches / lots.
+        for (let li = lots.length - 1; li >= 0; li--) {
+          lots[li].batches = lots[li].batches.filter((b) => b.stockCount > 0)
+          if (lots[li].batches.length === 0) lots.splice(li, 1)
+        }
+
+        const newTotal = lots.reduce(
+          (sum, lot) => sum + lot.batches.reduce((bs, b) => bs + b.stockCount, 0),
+          0
+        )
+
         response = await fetch(`${apiBaseUrl}/steamers/${adjustTarget.id}`, {
           method: 'PUT',
           headers,
-          body: JSON.stringify({ ...steamer, stockCount: newTotal, inStock: newTotal > 0 }),
+          body: JSON.stringify({ lots, stockCount: newTotal, inStock: newTotal > 0 }),
         })
       } else {
         const dp = damagedProducts.find((d) => d._id === adjustTarget.id)
