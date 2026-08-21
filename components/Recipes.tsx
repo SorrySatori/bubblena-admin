@@ -1,7 +1,8 @@
+'use client'
+
 import { useState, useEffect } from 'react'
-import type { Recipe, RecipeIngredient, RawMaterial, FinishedProduct } from '../types/warehouse'
-import { getRecipes, addRecipe, updateRecipe, deleteRecipe, getRawMaterials, getFinishedProducts } from '../utils/warehouseApi'
-import './Warehouse.css'
+import type { Recipe, RecipeIngredient, RawMaterial, FinishedProduct } from '@/types/warehouse'
+import { getRecipes, addRecipe, updateRecipe, deleteRecipe, getRawMaterials, getFinishedProducts } from '@/lib/warehouseApi'
 
 const Recipes = () => {
   const [recipes, setRecipes] = useState<Recipe[]>([])

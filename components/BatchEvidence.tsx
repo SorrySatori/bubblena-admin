@@ -1,7 +1,8 @@
+'use client'
+
 import { useState, useEffect } from 'react'
-import type { BatchEvidenceRecord, MaterialConsumption } from '../types/warehouse'
-import { getBatchEvidence, getRawMaterials, updateProductionRecord } from '../utils/warehouseApi'
-import './Warehouse.css'
+import type { BatchEvidenceRecord, MaterialConsumption } from '@/types/warehouse'
+import { getBatchEvidence, getRawMaterials, updateProductionRecord } from '@/lib/warehouseApi'
 
 interface BackendBatch {
   id: string
@@ -45,10 +46,7 @@ const BatchEvidence = ({ apiBaseUrl }: BatchEvidenceProps) => {
 
   const fetchBackendBatches = async () => {
     try {
-      const headers: Record<string, string> = {
-        'x-api-key': import.meta.env.VITE_API_KEY || '',
-      }
-      const res = await fetch(`${apiBaseUrl}/bombs`, { headers })
+      const res = await fetch(`${apiBaseUrl}/bombs`)
       if (!res.ok) return
 
       const bombs: { _id: string; name: string; acronym: string; lots: { lotNumber: string; batches: { _id?: string; batchId: string; variants: { weight: number; stockCount: number }[] }[] }[] }[] = await res.json()

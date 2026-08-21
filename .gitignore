@@ -23,6 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 
+# Next.js build output
+.next
+
 # Nuxt dev/build outputs
 .output
 .data

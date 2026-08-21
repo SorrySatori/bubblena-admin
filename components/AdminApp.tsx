@@ -1,11 +1,11 @@
+'use client'
+
 import { useState, useEffect } from 'react'
-import './App.css'
-import Login from './components/Login'
-import StockManagement from './components/StockManagement'
-import RawMaterials from './components/RawMaterials'
-import Recipes from './components/Recipes'
-import ProductionList from './components/ProductionList'
-import BatchEvidence from './components/BatchEvidence'
+import StockManagement from '@/components/StockManagement'
+import RawMaterials from '@/components/RawMaterials'
+import Recipes from '@/components/Recipes'
+import ProductionList from '@/components/ProductionList'
+import BatchEvidence from '@/components/BatchEvidence'
 
 interface OrderItem {
   id: string
@@ -35,12 +35,10 @@ interface Order {
   updatedAt: string
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api'
+const API_BASE_URL = '/api/be'
 const API_URL = `${API_BASE_URL}/order`
 
-function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [authLoading, setAuthLoading] = useState(true)
+function AdminApp() {
   const [activeTab, setActiveTab] = useState<'orders' | 'stock' | 'raw-materials' | 'recipes' | 'production' | 'batch-evidence'>('orders')
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
@@ -67,41 +65,15 @@ function App() {
   }
 
   useEffect(() => {
-    // Check if user is already authenticated
-    const credentials = localStorage.getItem('adminAuth')
-    if (credentials) {
-      // Verify credentials are valid
-      try {
-        const decoded = atob(credentials)
-        const validCredentials = 'kapybara:TajnyHeslo666'
-        if (decoded === validCredentials) {
-          setIsAuthenticated(true)
-        } else {
-          localStorage.removeItem('adminAuth')
-          setIsAuthenticated(false)
-        }
-      } catch (err) {
-        localStorage.removeItem('adminAuth')
-        setIsAuthenticated(false)
-      }
-    }
-    setAuthLoading(false)
+    fetchOrders()
   }, [])
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchOrders()
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/session', { method: 'DELETE' })
+    } finally {
+      window.location.href = '/login'
     }
-  }, [isAuthenticated])
-
-  const handleLoginSuccess = () => {
-    setIsAuthenticated(true)
-  }
-
-  const handleLogout = () => {
-    localStorage.removeItem('adminAuth')
-    setIsAuthenticated(false)
-    setOrders([])
   }
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
@@ -162,20 +134,6 @@ function App() {
   }
 
   const stats = getOrderStats()
-
-  if (authLoading) {
-    return (
-      <div className="app">
-        <div className="container">
-          <div className="loading">Načítání...</div>
-        </div>
-      </div>
-    )
-  }
-
-  if (!isAuthenticated) {
-    return <Login onLoginSuccess={handleLoginSuccess} />
-  }
 
   return (
     <div className="app">
@@ -349,4 +307,4 @@ function App() {
   )
 }
 
-export default App
+export default AdminApp
