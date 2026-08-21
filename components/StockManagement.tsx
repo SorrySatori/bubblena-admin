@@ -1,7 +1,8 @@
+'use client'
+
 import { useState, useEffect } from 'react'
-import { ALLOWED_BOMB_WEIGHTS } from '../constants/variants'
+import { ALLOWED_BOMB_WEIGHTS } from '@/constants/variants'
 import MultiSelect, { type MultiSelectOption } from './MultiSelect'
-import './StockManagement.css'
 
 interface BombVariant {
   weight: number
@@ -147,14 +148,10 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
       setLoading(true)
       setError(null)
 
-      const headers = {
-        'x-api-key': import.meta.env.VITE_API_KEY || ''
-      }
-
       const [bombsRes, steamersRes, damagedRes] = await Promise.all([
-        fetch(`${apiBaseUrl}/bombs`, { headers }),
-        fetch(`${apiBaseUrl}/steamers`, { headers }),
-        fetch(`${apiBaseUrl}/damaged-products`, { headers })
+        fetch(`${apiBaseUrl}/bombs`),
+        fetch(`${apiBaseUrl}/steamers`),
+        fetch(`${apiBaseUrl}/damaged-products`)
       ])
 
       const bombsData = await bombsRes.json()
@@ -183,10 +180,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
     try {
       const response = await fetch(
         `${apiBaseUrl}/${deleteEndpoint(deleteTarget.type)}/${deleteTarget.id}`,
-        {
-          method: 'DELETE',
-          headers: { 'x-api-key': import.meta.env.VITE_API_KEY || '' },
-        }
+        { method: 'DELETE' }
       )
       if (response.ok) {
         setSuccessMessage(`Úspěšně smazáno: ${deleteTarget.name}`)
@@ -218,7 +212,6 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
     try {
       const headers = {
         'Content-Type': 'application/json',
-        'x-api-key': import.meta.env.VITE_API_KEY || '',
       }
       let response: Response
       let removedVariant = false
@@ -357,8 +350,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
         const response = await fetch(`${apiBaseUrl}/bombs/${selectedBomb}/add-batch`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': import.meta.env.VITE_API_KEY || ''
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({ variants }),
         })
@@ -401,8 +393,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
         const response = await fetch(`${apiBaseUrl}/damaged-products/${selectedDamaged}`, {
           method: 'PUT',
           headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': import.meta.env.VITE_API_KEY || ''
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({
             ...damaged,
@@ -439,8 +430,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
           const response = await fetch(`${apiBaseUrl}/steamers/${selectedSteamer}/add-batch`, {
             method: 'POST',
             headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': import.meta.env.VITE_API_KEY || ''
+              'Content-Type': 'application/json'
             },
             body: JSON.stringify({ stockCount: quantityNum }),
           })
@@ -468,8 +458,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
           const response = await fetch(`${apiBaseUrl}/steamers/${selectedSteamer}`, {
             method: 'PUT',
             headers: {
-              'Content-Type': 'application/json',
-              'x-api-key': import.meta.env.VITE_API_KEY || ''
+              'Content-Type': 'application/json'
             },
             body: JSON.stringify({
               ...steamer,
@@ -525,8 +514,7 @@ const StockManagement = ({ apiBaseUrl }: StockManagementProps) => {
       const response = await fetch(`${apiBaseUrl}/damaged-products`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': import.meta.env.VITE_API_KEY || ''
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           bathBombType: newDamagedBathBombType,

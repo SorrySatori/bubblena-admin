@@ -1,8 +1,9 @@
+'use client'
+
 import { useState, useEffect } from 'react'
-import type { Recipe, ProductionRecord, ProductionBatchSize } from '../types/warehouse'
-import { getRecipes, getProductionRecords, produceBatch } from '../utils/warehouseApi'
-import { ALLOWED_BOMB_WEIGHTS } from '../constants/variants'
-import './Warehouse.css'
+import type { Recipe, ProductionRecord, ProductionBatchSize } from '@/types/warehouse'
+import { getRecipes, getProductionRecords, produceBatch } from '@/lib/warehouseApi'
+import { ALLOWED_BOMB_WEIGHTS } from '@/constants/variants'
 
 const ProductionList = () => {
   const [recipes, setRecipes] = useState<Recipe[]>([])

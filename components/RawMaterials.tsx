@@ -1,5 +1,7 @@
+'use client'
+
 import { useState, useEffect } from 'react'
-import type { RawMaterial } from '../types/warehouse'
+import type { RawMaterial } from '@/types/warehouse'
 import {
   getRawMaterials,
   addRawMaterial,
@@ -10,8 +12,7 @@ import {
   deleteMaterialBatch,
   getLowStockAlerts,
   seedWarehouse,
-} from '../utils/warehouseApi'
-import './Warehouse.css'
+} from '@/lib/warehouseApi'
 
 const RawMaterials = () => {
   const [materials, setMaterials] = useState<RawMaterial[]>([])

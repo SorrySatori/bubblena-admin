@@ -7,14 +7,14 @@ import type {
   BatchEvidenceRecord,
   MaterialConsumption,
   FinishedProduct,
-} from '../types/warehouse'
+} from '@/types/warehouse'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api'
+// Vše jde přes serverovou proxy, která doplní x-api-key mimo prohlížeč.
+const API_BASE_URL = '/api/be'
 
 function headers(): Record<string, string> {
   return {
     'Content-Type': 'application/json',
-    'x-api-key': import.meta.env.VITE_API_KEY || '',
   }
 }
 
