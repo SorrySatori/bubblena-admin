@@ -31,9 +31,18 @@ interface Order {
     total: number
   }
   status: string
+  shippingMethod?: string
+  shipment?: {
+    provider?: string | null
+    status?: 'none' | 'creating' | 'created' | 'failed'
+    externalId?: string | null
+    error?: string | null
+  }
   createdAt: string
   updatedAt: string
 }
+
+const SHIPPING_LABELS: Record<string, string> = { zasilkovna: 'Zásilkovna', gls: 'GLS' }
 
 const API_BASE_URL = '/api/be'
 const API_URL = `${API_BASE_URL}/order`
@@ -104,6 +113,65 @@ function AdminApp() {
     }
   }
 
+  const [shipmentBusy, setShipmentBusy] = useState<string | null>(null)
+
+  // Create (or retry) the carrier shipment for a paid order.
+  const createShipment = async (orderId: string) => {
+    setShipmentBusy(orderId)
+    try {
+      const response = await fetch(`${API_URL}/${orderId}/shipment`, { method: 'POST' })
+      const data = await response.json()
+      if (data.order) {
+        setOrders(orders.map(order => (order.orderId === orderId ? { ...order, ...data.order } : order)))
+      }
+      if (!data.success) {
+        alert(data.error || 'Zásilku se nepodařilo vytvořit')
+      }
+    } catch (err) {
+      alert('Chyba při vytváření zásilky')
+      console.error('Error creating shipment:', err)
+    } finally {
+      setShipmentBusy(null)
+    }
+  }
+
+  const renderShipment = (order: Order) => {
+    const shipment = order.shipment
+    const carrier = SHIPPING_LABELS[order.shippingMethod || ''] || order.shippingMethod || ''
+    const busy = shipmentBusy === order.orderId
+    const canCreate = order.status === 'paid' || order.status === 'processing'
+
+    if (shipment?.status === 'created') {
+      return (
+        <div className="shipment">
+          <span className="shipment-id">{carrier} {shipment.externalId}</span>
+          {order.shippingMethod === 'gls' && (
+            <a className="shipment-label" href={`${API_URL}/${order.orderId}/shipment/label`} target="_blank" rel="noreferrer">
+              Štítek
+            </a>
+          )}
+        </div>
+      )
+    }
+    if (shipment?.status === 'creating') {
+      return <span className="shipment-pending">Vytváří se…</span>
+    }
+    return (
+      <div className="shipment">
+        {shipment?.status === 'failed' && (
+          <span className="shipment-error" title={shipment.error || ''}>Chyba</span>
+        )}
+        {canCreate ? (
+          <button className="shipment-button" disabled={busy} onClick={() => createShipment(order.orderId)}>
+            {busy ? 'Vytvářím…' : shipment?.status === 'failed' ? 'Zkusit znovu' : 'Vytvořit zásilku'}
+          </button>
+        ) : (
+          <span className="shipment-pending">{carrier}</span>
+        )}
+      </div>
+    )
+  }
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('cs-CZ', {
       year: 'numeric',
@@ -125,6 +193,7 @@ function AdminApp() {
     const stats = {
       total: orders.length,
       pending: orders.filter(o => o.status === 'pending').length,
+      paid: orders.filter(o => o.status === 'paid').length,
       processing: orders.filter(o => o.status === 'processing').length,
       shipped: orders.filter(o => o.status === 'shipped').length,
       delivered: orders.filter(o => o.status === 'delivered').length,
@@ -201,6 +270,10 @@ function AdminApp() {
             <p>{stats.pending}</p>
           </div>
           <div className="stat-card">
+            <h3>Zaplaceno</h3>
+            <p>{stats.paid}</p>
+          </div>
+          <div className="stat-card">
             <h3>Zpracovává se</h3>
             <p>{stats.processing}</p>
           </div>
@@ -241,6 +314,7 @@ function AdminApp() {
                     <th>Položky</th>
                     <th>Celkem</th>
                     <th>Stav</th>
+                    <th>Zásilka</th>
                     <th>Datum</th>
                   </tr>
                 </thead>
@@ -273,12 +347,14 @@ function AdminApp() {
                           onChange={(e) => updateOrderStatus(order.orderId, e.target.value)}
                         >
                           <option value="pending">Čekající</option>
+                          <option value="paid">Zaplaceno</option>
                           <option value="processing">Zpracovává se</option>
                           <option value="shipped">Odesláno</option>
                           <option value="delivered">Doručeno</option>
                           <option value="cancelled">Zrušeno</option>
                         </select>
                       </td>
+                      <td>{renderShipment(order)}</td>
                       <td>
                         <span className="order-date">
                           {formatDate(order.createdAt)}

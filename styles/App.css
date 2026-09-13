@@ -213,6 +213,11 @@ body {
   color: #856404;
 }
 
+.status-paid {
+  background: #e2d9f3;
+  color: #432874;
+}
+
 .status-processing {
   background: #cfe2ff;
   color: #084298;
@@ -313,4 +318,52 @@ body {
     padding: 0.5rem;
     font-size: 0.85rem;
   }
+}
+
+/* Shipment column */
+.shipment {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+
+.shipment-id {
+  font-family: monospace;
+  white-space: nowrap;
+}
+
+.shipment-label {
+  color: #0d6efd;
+  text-decoration: underline;
+}
+
+.shipment-pending {
+  color: #6c757d;
+  font-size: 0.85rem;
+}
+
+.shipment-error {
+  background: #f8d7da;
+  color: #842029;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  cursor: help;
+}
+
+.shipment-button {
+  background: #0d6efd;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.shipment-button:disabled {
+  opacity: 0.6;
+  cursor: default;
 }

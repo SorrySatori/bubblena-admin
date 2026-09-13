@@ -4,6 +4,8 @@ type Rule = { methods: string[]; pattern: RegExp }
 const RULES: Rule[] = [
   { methods: ['GET'], pattern: /^order$/ },
   { methods: ['PATCH'], pattern: /^order\/[^/]+\/status$/ },
+  { methods: ['POST'], pattern: /^order\/[^/]+\/shipment$/ },
+  { methods: ['GET'], pattern: /^order\/[^/]+\/shipment\/label$/ },
   { methods: ['GET', 'POST'], pattern: /^bombs$/ },
   { methods: ['PUT', 'DELETE'], pattern: /^bombs\/[^/]+$/ },
   { methods: ['POST'], pattern: /^bombs\/[^/]+\/add-batch$/ },
